@@ -1,0 +1,22 @@
+# Build outputs
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# FLASH_MOD simulator binaries
+flash_mod_sim
+flash_mod_nor_sim
+flash_mod_nand_sim
+
+# Self-test storage images
+*.bin
+
+# Local editor/system files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
