@@ -1,0 +1,58 @@
+schema_version: 1
+
+device:
+  name: DEMO_NOR_64K
+  class: NOR
+  manufacturer: Demo
+  part_number: DEMO-NOR
+  id: [0x5A, 0x10, 0x01]
+
+geometry:
+  memory_size: 65536
+  page_size: 256
+  sector_size: 4096
+  block_size: 65536
+  planes: 1
+
+timing:
+  read_us: 1
+  program_us: 200
+  sector_erase_us: 1000
+  chip_erase_us: 10000
+  reset_us: 30
+  puw_us: 0
+
+commands:
+  read_id: true
+  reset: true
+  nor_read: true
+  nor_program: true
+  nor_erase: true
+
+registers:
+  status1_default: 0x00
+  status2_default: 0x02
+  status3_default: 0x00
+
+capabilities:
+  quad_enable: false
+  four_byte_address: false
+  block_protect: false
+  suspend_resume: false
+  security_register: false
+
+constraints:
+  require_wel: true
+  require_qe_for_quad: true
+
+policy:
+  name: generic_nor
+
+source:
+  datasheet: demo
+  page: synthetic
+  confidence: 1.0
+
+unsupported_features:
+  - otp
+  - suspend_resume

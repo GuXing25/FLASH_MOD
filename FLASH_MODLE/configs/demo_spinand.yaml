@@ -1,0 +1,64 @@
+schema_version: 1
+
+device:
+  name: DEMO_SPINAND
+  class: SPI_NAND
+  manufacturer: Demo
+  part_number: DEMO-SPINAND
+  id: [0x5A, 0x20, 0x01]
+
+geometry:
+  main_size: 256
+  spare_size: 16
+  pages_per_block: 4
+  blocks: 4
+  planes: 1
+
+timing:
+  page_read_us: 50
+  program_us: 250
+  block_erase_us: 2000
+  reset_us: 30
+  puw_us: 0
+
+commands:
+  read_id: true
+  reset: true
+  page_read: true
+  read_from_cache: true
+  program_load: true
+  program_execute: true
+  block_erase: true
+
+registers:
+  feature_a0_default: 0x7C
+  feature_b0_default: 0x10
+  feature_c0_default: 0x00
+  feature_d0_default: 0x00
+  feature_c0_dynamic: true
+
+capabilities:
+  block_protect: true
+  ecc_status: true
+  bad_block_management: true
+  copy_back: false
+
+constraints:
+  require_wel: true
+  default_all_protected: true
+  strict_sequential_program: true
+  max_partial_programs: 4
+  ecc_reserved_start: 256
+  ecc_reserved_end: 272
+
+policy:
+  name: generic_spinand
+
+source:
+  datasheet: demo
+  page: synthetic
+  confidence: 1.0
+
+unsupported_features:
+  - read_retry
+  - die_select

@@ -1,0 +1,45 @@
+schema_version: 1
+
+device:
+  name: INVALID_NOR_WITH_NAND_COMMAND
+  class: NOR
+  manufacturer: Demo
+  part_number: INVALID
+  id: [0x00]
+
+geometry:
+  memory_size: 65536
+  page_size: 256
+  sector_size: 4096
+
+timing:
+  read_us: 1
+  program_us: 200
+  sector_erase_us: 1000
+
+commands:
+  read_id: true
+  nor_read: true
+  nor_program: true
+  nor_erase: true
+  page_read: true
+
+registers:
+  status1_default: 0x00
+
+capabilities:
+  ecc_status: false
+
+constraints:
+  require_wel: true
+
+policy:
+  name: generic_nor
+
+source:
+  datasheet: invalid-demo
+  page: synthetic
+  confidence: 1.0
+
+unsupported_features:
+  - intentionally_invalid

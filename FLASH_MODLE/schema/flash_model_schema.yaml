@@ -1,0 +1,89 @@
+schema_version: 1
+
+device:
+  name: string
+  class: NOR | SPI_NAND | RAW_NAND
+  manufacturer: string
+  part_number: string
+  id: [byte, ...]
+
+geometry:
+  memory_size: uint64          # NOR
+  page_size: uint32            # NOR or derived NAND page size
+  sector_size: uint32          # NOR
+  block_size: uint32           # NOR optional common block size
+  main_size: uint32            # NAND
+  spare_size: uint32           # NAND
+  pages_per_block: uint32      # NAND
+  blocks: uint32               # NAND
+  planes: uint32
+
+timing:
+  read_us: double
+  page_read_us: double
+  program_us: double
+  sector_erase_us: double
+  block_erase_us: double
+  chip_erase_us: double
+  reset_us: double
+  puw_us: double
+
+commands:
+  read_id: bool
+  reset: bool
+  nor_read: bool
+  nor_program: bool
+  nor_erase: bool
+  page_read: bool
+  read_from_cache: bool
+  program_load: bool
+  program_execute: bool
+  block_erase: bool
+
+registers:
+  status1_default: byte
+  status2_default: byte
+  status3_default: byte
+  feature_a0_default: byte
+  feature_b0_default: byte
+  feature_c0_default: byte
+  feature_d0_default: byte
+  feature_c0_dynamic: bool
+
+capabilities:
+  quad_enable: bool
+  four_byte_address: bool
+  block_protect: bool
+  suspend_resume: bool
+  otp: bool
+  security_register: bool
+  ecc_status: bool
+  bad_block_management: bool
+  copy_back: bool
+  die_select: bool
+  plane_select: bool
+  read_retry: bool
+
+constraints:
+  require_wel: bool
+  require_qe_for_quad: bool
+  default_all_protected: bool
+  strict_sequential_program: bool
+  max_partial_programs: uint32
+  ecc_reserved_start: uint32
+  ecc_reserved_end: uint32
+  nor_protect_start: uint64
+  nor_protect_length: uint64
+
+policy:
+  name: generic_nor | generic_spinand | winbond_family | micron_family | gigadevice_family
+  overrides:
+    key: value
+
+source:
+  datasheet: string
+  page: string
+  confidence: double
+
+unsupported_features:
+  - string
