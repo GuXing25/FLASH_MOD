@@ -108,7 +108,7 @@ void test_nor_sfdp_unique_id_and_block32()
 
 void test_macronix_four_byte_profile()
 {
-    FlashModel mx = build_model_from_file("configs/mx25l25645g.yaml");
+    FlashModel mx = build_model_from_file("configs/nor_mx25l25645g.yaml");
     assert(mx.config().geometry.memory_size == 33554432);
     assert(mx.config().geometry.block32_size == 32768);
     assert(mx.state().address_bytes == 3);
@@ -120,7 +120,7 @@ void test_macronix_four_byte_profile()
 
 void test_gigadevice_spinand_parameter_page()
 {
-    FlashModel gd = build_model_from_file("configs/gd5f1gm7ue.yaml");
+    FlashModel gd = build_model_from_file("configs/nand_gd5f1gm7ue.yaml");
     OperationResult uid = gd.read_unique_id();
     require_ok(uid);
     assert(uid.data.size() == 16);
@@ -140,7 +140,7 @@ void test_gigadevice_spinand_parameter_page()
 
 void test_datasheet_nand_parameter_pages()
 {
-    FlashModel winbond = build_model_from_file("configs/w25n01gv.yaml");
+    FlashModel winbond = build_model_from_file("configs/nand_w25n01gv.yaml");
     OperationResult w25_param = winbond.read_parameter_page(0, 512);
     require_ok(w25_param);
     assert(w25_param.data[0] == 'O');
@@ -154,7 +154,7 @@ void test_datasheet_nand_parameter_pages()
     assert(le32(w25_param.data, 96) == 1024);
     assert(le16(w25_param.data, 103) == 20);
 
-    FlashModel micron = build_model_from_file("configs/mt29f2g01.yaml");
+    FlashModel micron = build_model_from_file("configs/nand_mt29f2g01.yaml");
     OperationResult mt_param = micron.read_parameter_page(0, 512);
     require_ok(mt_param);
     assert(mt_param.data[0] == 'O');
@@ -168,14 +168,14 @@ void test_datasheet_nand_parameter_pages()
 
 void test_additional_nor_profiles()
 {
-    FlashModel m25 = build_model_from_file("configs/m25p40.yaml");
+    FlashModel m25 = build_model_from_file("configs/nor_m25p40.yaml");
     assert(m25.config().geometry.memory_size == 524288);
     assert(m25.config().geometry.sector_size == 65536);
     OperationResult m25_uid = m25.read_unique_id();
     require_ok(m25_uid);
     assert(m25_uid.data.size() == 16);
 
-    FlashModel gd25 = build_model_from_file("configs/gd25le128e.yaml");
+    FlashModel gd25 = build_model_from_file("configs/nor_gd25le128e.yaml");
     assert(gd25.config().geometry.memory_size == 16777216);
     assert(gd25.config().geometry.block32_size == 32768);
     assert(gd25.config().constraints.security_register_size == 1024);
@@ -189,7 +189,7 @@ void test_additional_nor_profiles()
 
 void test_spinand_otp_storage()
 {
-    FlashModel nand = build_model_from_file("configs/demo_spinand.yaml");
+    FlashModel nand = build_model_from_file("configs/demo_nand.yaml");
 
     require_ok(nand.set_feature(0xA0, 0x00));
     require_ok(nand.enter_otp_mode());
@@ -216,14 +216,14 @@ void test_spinand_otp_storage()
 
 void test_selection_and_read_retry()
 {
-    FlashModel micron = build_model_from_file("configs/mt29f2g01.yaml");
+    FlashModel micron = build_model_from_file("configs/nand_mt29f2g01.yaml");
     require_ok(micron.select_plane(1));
     assert(micron.state().active_plane == 1);
     require_fail(micron.select_plane(2));
     require_ok(micron.select_die(0));
     require_fail(micron.select_die(1));
 
-    ModelConfig retry_config = load_config_file("configs/demo_spinand.yaml");
+    ModelConfig retry_config = load_config_file("configs/demo_nand.yaml");
     retry_config.capabilities.read_retry = true;
     retry_config.constraints.read_retry_levels = 3;
     FlashModel retry = build_model(std::move(retry_config));

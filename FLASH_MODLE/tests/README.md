@@ -5,11 +5,15 @@
 ## 文件说明
 
 - `address_test.cpp`：地址映射测试。
+- `storage_test.cpp`：稀疏存储、old&new、wrap、越界异常测试。
 - `registers_test.cpp`：寄存器状态测试。
 - `timing_test.cpp`：时序状态测试。
 - `capability_test.cpp`：能力模块 hook 测试。
+- `command_test.cpp`：命令事务层测试。
+- `interface_test.cpp`：接口计时测试。
 - `evidence_test.cpp`：字段 evidence 和 validator 测试。
-- `smoke.sh`：运行 demo 配置的端到端命令级自测。
+- `model_feature_test.cpp`：模型级功能组合测试。
+- `smoke.sh`：运行 demo 配置和 datasheet profile 的端到端自测。
 
 ## 测试要求
 
@@ -17,22 +21,15 @@
 
 - capability hook 测试。
 - validator 负例测试。
+- model feature 集成测试。
 - smoke test 端到端行为。
 
-测试命名保持短名：`address_test`、`timing_test`、`capability_test`。
-## 2026-06 Added Coverage
+测试命名保持短名，例如 `address_test`、`timing_test`、`capability_test`。
 
-- `model_feature_test.cpp`: end-to-end model checks for suspend/resume,
-  security-register lock, NAND OTP storage, plane/die selection, and read-retry
-  runtime state.
-- `model_feature_test.cpp`: now also checks NOR Unique ID, SFDP signature,
-  32KiB block erase, and the Macronix 4-byte address profile.
-- `model_feature_test.cpp`: now checks GigaDevice SPI-NAND Unique ID and
-  ONFI-style parameter page generation.
-- `model_feature_test.cpp`: now checks W25N01GV and MT29F2G01 parameter-page
-  geometry, redundant copies, bad-block budget, and ECC capability fields.
-- `timing_test.cpp`: now checks `TimingEngine::suspend()` and `resume()`.
-- `smoke.sh`: now greps for NOR suspend/resume, security lock rejection, and
-  NAND OTP mode behavior. It also validates the W25Q32JV, BY25Q64AS,
-  MX25L25645G, GD25LE128E, GD5F1GM7UEYIGR, M25P40, W25N01GV, and
-  MT29F2G01 datasheet-derived profiles.
+## 当前覆盖
+
+- Common Core：地址、存储、寄存器、时序、命令事务、接口耗时。
+- Config/Validator：字段证据、非法 NOR/NAND 命令组合。
+- Capability：block protect、ECC reserved、bad block、copy-back。
+- Model：NOR program/erase、security register、deep power-down、suspend/resume、unique ID、SFDP、SPI-NAND OTP、copy-back、parameter page、die/plane select、read retry。
+- Smoke：demo NOR、demo NOR block protect、demo SPI-NAND，以及多个 datasheet-derived profile 的 validate-only。

@@ -8,7 +8,7 @@ using namespace flash_model;
 
 int main()
 {
-    ModelConfig nand = load_config_file("configs/demo_spinand.yaml");
+    ModelConfig nand = load_config_file("configs/demo_nand.yaml");
     RegisterEngine regs(nand);
 
     assert(regs.feature(0xA0) == 0x7C);

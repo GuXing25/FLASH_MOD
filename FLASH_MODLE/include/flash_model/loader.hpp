@@ -7,7 +7,7 @@
 
 namespace flash_model {
 
-ModelConfig load_config_file(const std::string& path);
+ModelConfig load_config_file(const std::string& path); // 读取 YAML-like profile 并生成 ModelConfig。
 
 } // namespace flash_model
 

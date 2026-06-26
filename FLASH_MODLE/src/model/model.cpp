@@ -32,11 +32,16 @@ FlashModel::FlashModel(ModelConfig config,
       interface_(config_),
       storage_(config_.total_size_bytes())
 {
+    // 构造阶段完成“配置 -> 运行态”的一次性装配：能力模块先挂载，策略再设置上电默认值。
     for (const auto& module : modules_) module->attach(registers_.mutable_state());
     if (policy_) policy_->on_power_on(registers_.mutable_state());
+
+    // SPI-NAND 需要 cache register；NOR 虽然不使用 cache，但 effective_page_size 为 0 时不分配。
     if (config_.effective_page_size() != 0) {
         cache_.assign(config_.effective_page_size(), 0xFF);
     }
+
+    // NOR security register 是独立于主阵列的小存储区，大小由配置决定，避免写死厂商默认值。
     if (config_.capabilities.security_register) {
         const std::uint64_t bytes =
             static_cast<std::uint64_t>(security_register_count()) *
@@ -44,12 +49,16 @@ FlashModel::FlashModel(ModelConfig config,
         security_.assign(static_cast<std::size_t>(bytes), 0xFF);
         security_locked_.assign(security_register_count(), false);
     }
+
+    // NAND OTP 作为独立存储后端建模，这样 OTP mode 不会误写主阵列。
     if (config_.capabilities.otp && config_.constraints.otp_page_count != 0) {
         const std::uint64_t bytes =
             static_cast<std::uint64_t>(config_.constraints.otp_page_count) *
             static_cast<std::uint64_t>(config_.effective_page_size());
         otp_storage_.resize(bytes);
     }
+
+    // SFDP 当前生成最小可识别内容；后续可由配置或 datasheet profile 填入完整表。
     if (config_.capabilities.sfdp && config_.constraints.sfdp_size != 0) {
         sfdp_.assign(config_.constraints.sfdp_size, 0xFF);
         if (sfdp_.size() >= 8) {
@@ -66,6 +75,8 @@ FlashModel::FlashModel(ModelConfig config,
             sfdp_[16] = config_.device.id.front();
         }
     }
+
+    // NAND parameter page 由几何、时序和约束派生，便于 SPI-NAND profile 直接自描述。
     if (config_.capabilities.parameter_page && config_.constraints.parameter_page_size != 0) {
         build_parameter_page();
     }
@@ -141,6 +152,7 @@ bool FlashModel::require_not_suspended(const char* op) const
 
 CapabilityDecision FlashModel::before_nor_program(std::uint64_t address, std::uint64_t length) const
 {
+    // 能力模块按挂载顺序裁决；第一个拒绝者给出最终拒绝原因。
     for (const auto& module : modules_) {
         CapabilityDecision decision =
             module->before_nor_program(config_, registers_.state(), address, length);
@@ -449,6 +461,39 @@ OperationResult FlashModel::read_sfdp(std::uint32_t offset, std::size_t length)
     return result(true, "READ_SFDP", out);
 }
 
+OperationResult FlashModel::execute_nor_erase(const char* op,
+                                              bool command_enabled,
+                                              std::uint64_t base,
+                                              std::uint64_t length,
+                                              const std::string& transaction_name,
+                                              double busy_us,
+                                              const std::string& accepted_message)
+{
+    // NOR erase 命令共享相同的门禁：器件类别、命令存在性、低功耗、busy、suspend、WEL。
+    if (is_nand_like(config_.device.cls)) return result(false, std::string(op) + " rejected: NAND-like device");
+    if (!command_enabled) return result(false, std::string(op) + " unsupported");
+    if (!require_awake(op)) return result(false, std::string(op) + " rejected: deep power-down");
+    if (!require_ready(op)) return result(false, std::string(op) + " rejected: busy");
+    if (!require_not_suspended(op)) return result(false, std::string(op) + " rejected: suspended");
+    if (!require_wel(op)) return result(false, std::string(op) + " rejected: WEL=0");
+
+    // 保护区等能力模块在真正修改阵列前统一裁决。
+    const CapabilityDecision capability = before_nor_erase(base, length);
+    if (!capability.ok) {
+        registers_.set_write_enable(false);
+        registers_.set_erase_fail(true);
+        return result(false, capability.message);
+    }
+
+    // 通过 command transaction layer 叠加接口传输耗时，再擦除主阵列。
+    account_command(transaction_name);
+    storage_.erase(base, length);
+    registers_.set_write_enable(false);
+    registers_.set_erase_fail(false);
+    timing_.start_busy(busy_us);
+    return result(true, accepted_message);
+}
+
 OperationResult FlashModel::nor_read(std::uint64_t address, std::size_t length)
 {
     if (is_nand_like(config_.device.cls)) return result(false, "NOR_READ rejected: NAND-like device");
@@ -472,6 +517,8 @@ OperationResult FlashModel::nor_program(std::uint64_t address, const std::vector
     const std::uint64_t page_base = page == 0 ? address : (address / page) * page;
     const std::uint64_t page_offset = page == 0 ? 0 : address - page_base;
     const bool wraps = page != 0 && data.size() > page - page_offset;
+
+    // NOR page program 跨页时按“页内回绕”处理；保护区检查覆盖整个受影响页。
     const CapabilityDecision capability =
         wraps ? before_nor_program(page_base, page) : before_nor_program(address, data.size());
     if (!capability.ok) {
@@ -483,6 +530,7 @@ OperationResult FlashModel::nor_program(std::uint64_t address, const std::vector
     if (page == 0 || !wraps) {
         storage_.program_and(address, data);
     } else {
+        // 回绕写入逐字节落到同一页内，仍保留 Flash old&new 语义。
         for (std::size_t i = 0; i < data.size(); ++i) {
             const std::uint64_t target = page_base + ((page_offset + i) % page);
             storage_.program_and(target, {data[i]});
@@ -496,101 +544,57 @@ OperationResult FlashModel::nor_program(std::uint64_t address, const std::vector
 
 OperationResult FlashModel::nor_sector_erase(std::uint64_t address)
 {
-    if (is_nand_like(config_.device.cls)) return result(false, "NOR_ERASE rejected: NAND-like device");
-    if (!config_.commands.nor_erase) return result(false, "NOR_ERASE unsupported");
-    if (!require_awake("NOR_ERASE")) return result(false, "NOR_ERASE rejected: deep power-down");
-    if (!require_ready("NOR_ERASE")) return result(false, "NOR_ERASE rejected: busy");
-    if (!require_not_suspended("NOR_ERASE")) return result(false, "NOR_ERASE rejected: suspended");
-    if (!require_wel("NOR_ERASE")) return result(false, "NOR_ERASE rejected: WEL=0");
     const std::uint64_t sector = config_.geometry.sector_size;
     const std::uint64_t base = address_.nor_sector_base(address);
-    const CapabilityDecision capability = before_nor_erase(base, sector);
-    if (!capability.ok) {
-        registers_.set_write_enable(false);
-        registers_.set_erase_fail(true);
-        return result(false, capability.message);
-    }
-    account_command("nor_sector_erase");
-    storage_.erase(base, sector);
-    registers_.set_write_enable(false);
-    registers_.set_erase_fail(false);
-    timing_.start_busy(config_.timing.sector_erase_us);
-    return result(true, "NOR_SECTOR_ERASE accepted");
+    return execute_nor_erase("NOR_ERASE",
+                             config_.commands.nor_erase,
+                             base,
+                             sector,
+                             "nor_sector_erase",
+                             config_.timing.sector_erase_us,
+                             "NOR_SECTOR_ERASE accepted");
 }
 
 OperationResult FlashModel::nor_block32_erase(std::uint64_t address)
 {
-    if (is_nand_like(config_.device.cls)) return result(false, "NOR_BLOCK32_ERASE rejected: NAND-like device");
-    if (!config_.commands.nor_block32_erase) return result(false, "NOR_BLOCK32_ERASE unsupported");
-    if (!require_awake("NOR_BLOCK32_ERASE")) return result(false, "NOR_BLOCK32_ERASE rejected: deep power-down");
-    if (!require_ready("NOR_BLOCK32_ERASE")) return result(false, "NOR_BLOCK32_ERASE rejected: busy");
-    if (!require_not_suspended("NOR_BLOCK32_ERASE")) return result(false, "NOR_BLOCK32_ERASE rejected: suspended");
-    if (!require_wel("NOR_BLOCK32_ERASE")) return result(false, "NOR_BLOCK32_ERASE rejected: WEL=0");
     const std::uint64_t block = config_.geometry.block32_size;
     if (block == 0) return result(false, "NOR_BLOCK32_ERASE rejected: block32_size=0");
     const std::uint64_t base = address_.nor_block32_base(address);
-    const CapabilityDecision capability = before_nor_erase(base, block);
-    if (!capability.ok) {
-        registers_.set_write_enable(false);
-        registers_.set_erase_fail(true);
-        return result(false, capability.message);
-    }
-    account_command("nor_block32_erase");
-    storage_.erase(base, block);
-    registers_.set_write_enable(false);
-    registers_.set_erase_fail(false);
     const double erase_us = config_.timing.block32_erase_us > 0.0
                                 ? config_.timing.block32_erase_us
                                 : config_.timing.block_erase_us;
-    timing_.start_busy(erase_us);
-    return result(true, "NOR_BLOCK32_ERASE accepted");
+    return execute_nor_erase("NOR_BLOCK32_ERASE",
+                             config_.commands.nor_block32_erase,
+                             base,
+                             block,
+                             "nor_block32_erase",
+                             erase_us,
+                             "NOR_BLOCK32_ERASE accepted");
 }
 
 OperationResult FlashModel::nor_block_erase(std::uint64_t address)
 {
-    if (is_nand_like(config_.device.cls)) return result(false, "NOR_BLOCK_ERASE rejected: NAND-like device");
-    if (!config_.commands.nor_block_erase) return result(false, "NOR_BLOCK_ERASE unsupported");
-    if (!require_awake("NOR_BLOCK_ERASE")) return result(false, "NOR_BLOCK_ERASE rejected: deep power-down");
-    if (!require_ready("NOR_BLOCK_ERASE")) return result(false, "NOR_BLOCK_ERASE rejected: busy");
-    if (!require_not_suspended("NOR_BLOCK_ERASE")) return result(false, "NOR_BLOCK_ERASE rejected: suspended");
-    if (!require_wel("NOR_BLOCK_ERASE")) return result(false, "NOR_BLOCK_ERASE rejected: WEL=0");
     const std::uint64_t block = config_.geometry.block_size;
     if (block == 0) return result(false, "NOR_BLOCK_ERASE rejected: block_size=0");
     const std::uint64_t base = address_.nor_block_base(address);
-    const CapabilityDecision capability = before_nor_erase(base, block);
-    if (!capability.ok) {
-        registers_.set_write_enable(false);
-        registers_.set_erase_fail(true);
-        return result(false, capability.message);
-    }
-    account_command("nor_block_erase");
-    storage_.erase(base, block);
-    registers_.set_write_enable(false);
-    registers_.set_erase_fail(false);
-    timing_.start_busy(config_.timing.block_erase_us);
-    return result(true, "NOR_BLOCK_ERASE accepted");
+    return execute_nor_erase("NOR_BLOCK_ERASE",
+                             config_.commands.nor_block_erase,
+                             base,
+                             block,
+                             "nor_block_erase",
+                             config_.timing.block_erase_us,
+                             "NOR_BLOCK_ERASE accepted");
 }
 
 OperationResult FlashModel::nor_chip_erase()
 {
-    if (is_nand_like(config_.device.cls)) return result(false, "NOR_CHIP_ERASE rejected: NAND-like device");
-    if (!config_.commands.nor_chip_erase) return result(false, "NOR_CHIP_ERASE unsupported");
-    if (!require_awake("NOR_CHIP_ERASE")) return result(false, "NOR_CHIP_ERASE rejected: deep power-down");
-    if (!require_ready("NOR_CHIP_ERASE")) return result(false, "NOR_CHIP_ERASE rejected: busy");
-    if (!require_not_suspended("NOR_CHIP_ERASE")) return result(false, "NOR_CHIP_ERASE rejected: suspended");
-    if (!require_wel("NOR_CHIP_ERASE")) return result(false, "NOR_CHIP_ERASE rejected: WEL=0");
-    const CapabilityDecision capability = before_nor_erase(0, config_.geometry.memory_size);
-    if (!capability.ok) {
-        registers_.set_write_enable(false);
-        registers_.set_erase_fail(true);
-        return result(false, capability.message);
-    }
-    account_command("nor_chip_erase");
-    storage_.erase(0, config_.geometry.memory_size);
-    registers_.set_write_enable(false);
-    registers_.set_erase_fail(false);
-    timing_.start_busy(config_.timing.chip_erase_us);
-    return result(true, "NOR_CHIP_ERASE accepted");
+    return execute_nor_erase("NOR_CHIP_ERASE",
+                             config_.commands.nor_chip_erase,
+                             0,
+                             config_.geometry.memory_size,
+                             "nor_chip_erase",
+                             config_.timing.chip_erase_us,
+                             "NOR_CHIP_ERASE accepted");
 }
 
 bool FlashModel::security_range_ok(std::uint8_t index,
@@ -830,6 +834,8 @@ OperationResult FlashModel::program_load(std::uint16_t column,
     if (!config_.commands.program_load) return result(false, "PROGRAM_LOAD unsupported");
     if (!require_ready("PROGRAM_LOAD")) return result(false, "PROGRAM_LOAD rejected: busy");
     if (!require_not_suspended("PROGRAM_LOAD")) return result(false, "PROGRAM_LOAD rejected: suspended");
+
+    // 普通 program_load 会重新填充 cache；random_load 则在已有 cache 上局部覆盖。
     if (!cache_valid_ || !random_load) {
         cache_.assign(config_.effective_page_size(), 0xFF);
         cache_valid_ = true;
@@ -838,6 +844,8 @@ OperationResult FlashModel::program_load(std::uint16_t column,
     if (column + data.size() > cache_.size()) return result(false, "PROGRAM_LOAD rejected: column out of range");
     account_command("program_load", data.size());
     std::copy(data.begin(), data.end(), cache_.begin() + column);
+
+    // ECC reserved 等违规先记录在 cache，真正拒绝发生在 program_execute。
     if (marks_nand_program_load_violation(column, data.size())) cache_program_violation_ = true;
     return result(true, random_load ? "RANDOM_PROGRAM_LOAD" : "PROGRAM_LOAD");
 }
@@ -852,6 +860,7 @@ OperationResult FlashModel::execute_cached_program(std::uint32_t page,
                                                    const std::string& op,
                                                    const std::string& accepted_message)
 {
+    // SPI-NAND program_execute/copy_back 都通过这条路径提交 cache 到阵列或 OTP 区。
     if (!cache_valid_) return result(false, op + " rejected: cache invalid");
     const bool otp_mode = registers_.state().otp_mode;
     const std::uint32_t total_pages = otp_mode
@@ -877,6 +886,7 @@ OperationResult FlashModel::execute_cached_program(std::uint32_t page,
         return result(false, op + " rejected: partial program limit");
     }
 
+    // strict_sequential_program 模拟某些 NAND 对同一 block 内页编程顺序的要求。
     if (!otp_mode && config_.constraints.strict_sequential_program) {
         const std::uint32_t default_next = address_.nand_first_page_of_block(block);
         const std::uint32_t expected = next_page_by_block_.count(block) ? next_page_by_block_[block] : default_next;
@@ -894,6 +904,7 @@ OperationResult FlashModel::execute_cached_program(std::uint32_t page,
                                  config_.effective_page_size(),
                                  cache_);
     } else {
+        // 主阵列提交同样使用 old&new，因此重复 program 不会把 0 写回 1。
         storage_.program_and(address_.nand_page_offset(page), cache_);
     }
     program_count[page] = current_count + 1;

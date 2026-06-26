@@ -27,6 +27,11 @@ enum class CapabilityKind {
     ParameterPage
 };
 
+struct CapabilityDescriptor {
+    bool CapabilityConfig::*enabled; // 指向 CapabilityConfig 中的开关字段。
+    CapabilityKind kind; // 开关打开后需要创建的能力类型。
+};
+
 std::string capability_name(CapabilityKind kind)
 {
     switch (kind) {
@@ -465,23 +470,33 @@ bool CapabilityModule::marks_nand_program_load_violation(const ModelConfig&,
 
 std::vector<std::unique_ptr<CapabilityModule>> create_capability_modules(const ModelConfig& config)
 {
+    // 统一能力清单。新增能力时优先在这里补一行，再按需实现专用 module。
+    static const CapabilityDescriptor descriptors[] = {
+        {&CapabilityConfig::quad_enable, CapabilityKind::QuadEnable},
+        {&CapabilityConfig::four_byte_address, CapabilityKind::FourByteAddress},
+        {&CapabilityConfig::block_protect, CapabilityKind::BlockProtect},
+        {&CapabilityConfig::deep_power_down, CapabilityKind::DeepPowerDown},
+        {&CapabilityConfig::suspend_resume, CapabilityKind::SuspendResume},
+        {&CapabilityConfig::unique_id, CapabilityKind::UniqueId},
+        {&CapabilityConfig::sfdp, CapabilityKind::Sfdp},
+        {&CapabilityConfig::otp, CapabilityKind::Otp},
+        {&CapabilityConfig::security_register, CapabilityKind::SecurityRegister},
+        {&CapabilityConfig::ecc_status, CapabilityKind::EccStatus},
+        {&CapabilityConfig::bad_block_management, CapabilityKind::BadBlockManagement},
+        {&CapabilityConfig::copy_back, CapabilityKind::CopyBack},
+        {&CapabilityConfig::die_select, CapabilityKind::DieSelect},
+        {&CapabilityConfig::plane_select, CapabilityKind::PlaneSelect},
+        {&CapabilityConfig::read_retry, CapabilityKind::ReadRetry},
+        {&CapabilityConfig::parameter_page, CapabilityKind::ParameterPage},
+    };
+
     std::vector<std::unique_ptr<CapabilityModule>> modules;
-    maybe_add(modules, config, config.capabilities.quad_enable, CapabilityKind::QuadEnable);
-    maybe_add(modules, config, config.capabilities.four_byte_address, CapabilityKind::FourByteAddress);
-    maybe_add(modules, config, config.capabilities.block_protect, CapabilityKind::BlockProtect);
-    maybe_add(modules, config, config.capabilities.deep_power_down, CapabilityKind::DeepPowerDown);
-    maybe_add(modules, config, config.capabilities.suspend_resume, CapabilityKind::SuspendResume);
-    maybe_add(modules, config, config.capabilities.unique_id, CapabilityKind::UniqueId);
-    maybe_add(modules, config, config.capabilities.sfdp, CapabilityKind::Sfdp);
-    maybe_add(modules, config, config.capabilities.otp, CapabilityKind::Otp);
-    maybe_add(modules, config, config.capabilities.security_register, CapabilityKind::SecurityRegister);
-    maybe_add(modules, config, config.capabilities.ecc_status, CapabilityKind::EccStatus);
-    maybe_add(modules, config, config.capabilities.bad_block_management, CapabilityKind::BadBlockManagement);
-    maybe_add(modules, config, config.capabilities.copy_back, CapabilityKind::CopyBack);
-    maybe_add(modules, config, config.capabilities.die_select, CapabilityKind::DieSelect);
-    maybe_add(modules, config, config.capabilities.plane_select, CapabilityKind::PlaneSelect);
-    maybe_add(modules, config, config.capabilities.read_retry, CapabilityKind::ReadRetry);
-    maybe_add(modules, config, config.capabilities.parameter_page, CapabilityKind::ParameterPage);
+    for (const CapabilityDescriptor& descriptor : descriptors) {
+        maybe_add(modules,
+                  config,
+                  config.capabilities.*(descriptor.enabled),
+                  descriptor.kind);
+    }
     return modules;
 }
 

@@ -22,7 +22,7 @@ const CapabilityModule* find_module(const std::vector<std::unique_ptr<Capability
 
 int main()
 {
-    ModelConfig nor = load_config_file("configs/demo_nor_block_protect.yaml");
+    ModelConfig nor = load_config_file("configs/demo_nor_bp.yaml");
     std::vector<std::unique_ptr<CapabilityModule>> nor_modules = create_capability_modules(nor);
     const CapabilityModule* nor_bp = find_module(nor_modules, "block_protect");
     assert(nor_bp != nullptr);
@@ -42,7 +42,7 @@ int main()
     const CapabilityModule* security = find_module(nor_dpd_modules, "security_register");
     assert(security != nullptr);
 
-    ModelConfig nand = load_config_file("configs/demo_spinand.yaml");
+    ModelConfig nand = load_config_file("configs/demo_nand.yaml");
     std::vector<std::unique_ptr<CapabilityModule>> nand_modules = create_capability_modules(nand);
     const CapabilityModule* nand_bp = find_module(nand_modules, "block_protect");
     assert(nand_bp != nullptr);

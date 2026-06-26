@@ -384,7 +384,7 @@ int main(int argc, char** argv)
         FlashModel model = build_model_from_file(config_path);
         const ModelConfig& config = model.config();
 
-        std::cout << "=== FLASH_MODLE Profile ===\n";
+        std::cout << "=== FLASH_MODEL Profile ===\n";
         std::cout << "name: " << config.device.name << "\n";
         std::cout << "class: " << to_string(config.device.cls) << "\n";
         std::cout << "policy: " << config.policy.name << "\n";

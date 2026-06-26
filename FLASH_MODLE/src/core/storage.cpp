@@ -1,6 +1,7 @@
 #include "flash_model/storage.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <stdexcept>
 
 namespace flash_model {
@@ -24,13 +25,31 @@ std::uint64_t SparseStorageBackend::normalize(std::uint64_t address, bool wrap) 
     throw std::out_of_range("storage address out of range");
 }
 
+std::uint64_t SparseStorageBackend::normalize_offset(std::uint64_t address,
+                                                     std::uint64_t offset,
+                                                     bool wrap) const
+{
+    if (size_bytes_ == 0) throw std::runtime_error("storage size is zero");
+
+    // wrap 模式下先分别取模再相加，避免 address + offset 在 uint64_t 上回绕。
+    if (wrap) {
+        return ((address % size_bytes_) + (offset % size_bytes_)) % size_bytes_;
+    }
+
+    // 非 wrap 模式下，溢出和越界都应作为地址错误暴露给调用方。
+    if (offset > std::numeric_limits<std::uint64_t>::max() - address) {
+        throw std::out_of_range("storage address out of range");
+    }
+    return normalize(address + offset, false);
+}
+
 std::vector<std::uint8_t> SparseStorageBackend::read(std::uint64_t address,
                                                      std::size_t length,
                                                      bool wrap) const
 {
     std::vector<std::uint8_t> out(length, 0xFF);
     for (std::size_t i = 0; i < length; ++i) {
-        const std::uint64_t offset = normalize(address + i, wrap);
+        const std::uint64_t offset = normalize_offset(address, i, wrap);
         const auto it = bytes_.find(offset);
         if (it != bytes_.end()) out[i] = it->second;
     }
@@ -42,7 +61,7 @@ void SparseStorageBackend::program_and(std::uint64_t address,
                                        bool wrap)
 {
     for (std::size_t i = 0; i < data.size(); ++i) {
-        const std::uint64_t offset = normalize(address + i, wrap);
+        const std::uint64_t offset = normalize_offset(address, i, wrap);
         const auto old_it = bytes_.find(offset);
         const std::uint8_t old_value = old_it == bytes_.end() ? 0xFF : old_it->second;
         const std::uint8_t next = static_cast<std::uint8_t>(old_value & data[i]);
@@ -53,7 +72,8 @@ void SparseStorageBackend::program_and(std::uint64_t address,
 
 void SparseStorageBackend::erase_linear(std::uint64_t address, std::uint64_t length)
 {
-    const std::uint64_t end = std::min<std::uint64_t>(size_bytes_, address + length);
+    const std::uint64_t room = size_bytes_ - address;
+    const std::uint64_t end = address + std::min(length, room);
     auto it = bytes_.lower_bound(address);
     while (it != bytes_.end() && it->first < end) {
         it = bytes_.erase(it);

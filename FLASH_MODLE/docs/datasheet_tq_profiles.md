@@ -7,14 +7,14 @@ FLASH_MODLE configuration profiles.
 
 | Device | Type | Config | Policy | Status |
 |---|---|---|---|---|
-| BY25Q64AS | SPI NOR | `configs/by25q64as.yaml` | `boya_family` | validate-only covered |
-| GD25LE128E | SPI NOR | `configs/gd25le128e.yaml` | `gigadevice_family` | validate-only covered |
-| GD5F1GM7UEYIGR | SPI NAND | `configs/gd5f1gm7ue.yaml` | `gigadevice_family` | validate-only covered |
-| M25P40 | SPI NOR | `configs/m25p40.yaml` | `micron_family` | validate-only covered |
-| MX25L25645G | SPI NOR | `configs/mx25l25645g.yaml` | `macronix_family` | validate-only covered |
-| W25Q32JVSSIQ | SPI NOR | `configs/w25q32jv.yaml` | `winbond_family` | validate-only covered |
-| W25N01GVZEIG | SPI NAND | `configs/w25n01gv.yaml` | `winbond_family` | validate-only covered |
-| MT29F2G01ABAGDWB | SPI NAND | `configs/mt29f2g01.yaml` | `micron_family` | validate-only covered |
+| BY25Q64AS | SPI NOR | `configs/nor_by25q64as.yaml` | `boya_family` | validate-only covered |
+| GD25LE128E | SPI NOR | `configs/nor_gd25le128e.yaml` | `gigadevice_family` | validate-only covered |
+| GD5F1GM7UEYIGR | SPI NAND | `configs/nand_gd5f1gm7ue.yaml` | `gigadevice_family` | validate-only covered |
+| M25P40 | SPI NOR | `configs/nor_m25p40.yaml` | `micron_family` | validate-only covered |
+| MX25L25645G | SPI NOR | `configs/nor_mx25l25645g.yaml` | `macronix_family` | validate-only covered |
+| W25Q32JVSSIQ | SPI NOR | `configs/nor_w25q32jv.yaml` | `winbond_family` | validate-only covered |
+| W25N01GVZEIG | SPI NAND | `configs/nand_w25n01gv.yaml` | `winbond_family` | validate-only covered |
+| MT29F2G01ABAGDWB | SPI NAND | `configs/nand_mt29f2g01.yaml` | `micron_family` | validate-only covered |
 
 ## Fields Mapped Into Schema
 
