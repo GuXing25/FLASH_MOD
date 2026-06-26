@@ -1,0 +1,74 @@
+schema_version: 1
+
+device:
+  name: M25P40
+  class: NOR
+  manufacturer: Micron
+  part_number: M25P40-VMN6TP
+  id: [0x20, 0x20, 0x13]
+
+geometry:
+  memory_size: 524288
+  page_size: 256
+  sector_size: 65536
+  block_size: 65536
+  planes: 1
+
+timing:
+  read_us: 1
+  program_us: 800
+  sector_erase_us: 600000
+  chip_erase_us: 4500000
+  reset_us: 0
+  puw_us: 10000
+
+commands:
+  read_id: true
+  nor_read: true
+  nor_program: true
+  nor_erase: true
+  nor_chip_erase: true
+  read_unique_id: true
+  deep_power_down: true
+  release_power_down: true
+
+registers:
+  status1_default: 0x00
+  status2_default: 0x00
+  status3_default: 0x00
+
+capabilities:
+  block_protect: true
+  deep_power_down: true
+  unique_id: true
+
+constraints:
+  require_wel: true
+  require_qe_for_quad: false
+  address_bytes: 3
+  unique_id_size: 16
+
+policy:
+  name: micron_family
+
+source:
+  datasheet: C19441626_NOR+FLASH_M25P40-VMN6TP_规格书_WJ1591448_dual_Kimi+DeepSeek.pdf
+  page: extracted text lines 960-1095, 1176-1220, 1380-1408, 2910-2924
+  confidence: 0.88
+
+evidence:
+  device.name: M25P40 PDF|title and memory configuration|0.9
+  device.class: M25P40 PDF|lines 960-1095|0.9
+  device.id: M25P40 PDF|lines 1380-1408|0.95
+  geometry.memory_size: M25P40 PDF|lines 1000-1030|0.95
+  geometry.page_size: M25P40 PDF|lines 1000-1030|0.95
+  geometry.sector_size: M25P40 PDF|lines 1000-1095|0.95
+  constraints.unique_id_size: M25P40 PDF|lines 1380-1408|0.9
+  policy.name: M25P40 PDF|Micron document header|0.85
+
+unsupported_features:
+  - bp_sector_protect_decode
+  - status_register_write_protect_pin
+  - read_electronic_signature_res
+  - uid_cfd_customer_programming
+  - no_sfdp_register

@@ -1,0 +1,101 @@
+schema_version: 1
+
+device:
+  name: GD25LE128E
+  class: NOR
+  manufacturer: GigaDevice
+  part_number: GD25LE128ELIGR
+  id: [0xC8, 0x60, 0x18]
+
+geometry:
+  memory_size: 16777216
+  page_size: 256
+  sector_size: 4096
+  block32_size: 32768
+  block_size: 65536
+  planes: 1
+
+timing:
+  read_us: 1
+  program_us: 250
+  sector_erase_us: 30000
+  block32_erase_us: 100000
+  block_erase_us: 150000
+  chip_erase_us: 32000000
+  reset_us: 30
+  puw_us: 0
+
+commands:
+  read_id: true
+  reset: true
+  nor_read: true
+  nor_program: true
+  nor_erase: true
+  nor_block32_erase: true
+  nor_block_erase: true
+  nor_chip_erase: true
+  read_unique_id: true
+  read_sfdp: true
+  deep_power_down: true
+  release_power_down: true
+  suspend: true
+  resume: true
+  read_security_register: true
+  program_security_register: true
+  erase_security_register: true
+  lock_security_register: true
+
+registers:
+  status1_default: 0x00
+  status2_default: 0x00
+  status3_default: 0x00
+
+capabilities:
+  quad_enable: true
+  block_protect: true
+  deep_power_down: true
+  suspend_resume: true
+  unique_id: true
+  sfdp: true
+  otp: true
+  security_register: true
+
+constraints:
+  require_wel: true
+  require_qe_for_quad: true
+  address_bytes: 3
+  security_register_count: 3
+  security_register_size: 1024
+  unique_id_size: 16
+  sfdp_size: 256
+
+policy:
+  name: gigadevice_family
+
+source:
+  datasheet: C22431879_NOR+FLASH_GD25LE128ELIGR_规格书_WJ1663171.PDF_dual.pdf
+  page: extracted text lines 192-214, 803-814, 1530-1615, 1818-1850, 3698-3710, 3788-3978, 4540-4565, 5226-5235
+  confidence: 0.9
+
+evidence:
+  device.name: GD25LE128E PDF|lines 192-214|0.9
+  device.class: GD25LE128E PDF|lines 192-214|0.9
+  device.id: GD25LE128E PDF|lines 1818-1850|0.95
+  geometry.memory_size: GD25LE128E PDF|lines 192-214,803-814|0.95
+  geometry.page_size: GD25LE128E PDF|lines 192-214,803-814|0.95
+  geometry.sector_size: GD25LE128E PDF|lines 192-214,803-814|0.95
+  geometry.block32_size: GD25LE128E PDF|lines 192-214,1530-1615|0.95
+  geometry.block_size: GD25LE128E PDF|lines 192-214,1530-1615|0.95
+  constraints.security_register_count: GD25LE128E PDF|lines 3788-3830|0.95
+  constraints.security_register_size: GD25LE128E PDF|lines 3788-3830|0.95
+  constraints.unique_id_size: GD25LE128E PDF|lines 3698-3710|0.95
+  constraints.sfdp_size: GD25LE128E PDF|lines 4540-4565|0.85
+  policy.name: GD25LE128E PDF|manufacturer GigaDevice|0.9
+
+unsupported_features:
+  - bp4_bp0_cmp_protection_table
+  - status_register_protect_modes
+  - security_register_lock_bit_encoding
+  - qpi_mode
+  - dummy_cycle_configuration
+  - full_sfdp_parameter_table

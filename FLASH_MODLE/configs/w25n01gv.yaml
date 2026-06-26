@@ -1,0 +1,101 @@
+schema_version: 1
+
+device:
+  name: W25N01GVZEIG
+  class: SPI_NAND
+  manufacturer: Winbond
+  part_number: W25N01GVZEIG
+  id: [0xEF, 0xAA, 0x21]
+
+geometry:
+  main_size: 2048
+  spare_size: 64
+  pages_per_block: 64
+  blocks: 1024
+  planes: 1
+
+timing:
+  page_read_us: 60
+  program_us: 250
+  block_erase_us: 2000
+  reset_us: 5
+  puw_us: 5000
+
+commands:
+  read_id: true
+  reset: true
+  read_unique_id: true
+  read_parameter_page: true
+  enter_otp_mode: true
+  exit_otp_mode: true
+  page_read: true
+  read_from_cache: true
+  program_load: true
+  program_execute: true
+  block_erase: true
+  copy_back: false
+
+registers:
+  feature_a0_default: 0x7C
+  feature_b0_default: 0x18
+  feature_c0_default: 0x00
+  feature_d0_default: 0x00
+  feature_c0_dynamic: true
+
+capabilities:
+  block_protect: true
+  unique_id: true
+  parameter_page: true
+  ecc_status: true
+  bad_block_management: true
+  otp: true
+  copy_back: false
+  read_retry: false
+
+constraints:
+  require_wel: true
+  default_all_protected: true
+  strict_sequential_program: true
+  max_partial_programs: 4
+  ecc_reserved_start: 2048
+  ecc_reserved_end: 2112
+  otp_page_count: 10
+  unique_id_size: 16
+  parameter_page_size: 2048
+  bad_block_marker_offset: 2048
+  minimum_valid_blocks: 1004
+  ecc_bits: 1
+
+policy:
+  name: winbond_family
+
+source:
+  datasheet: datasheet_tq
+  page: lines 346-640
+  confidence: 0.9
+
+evidence:
+  device.name: datasheet_tq|lines 333-347|0.9
+  device.class: datasheet_tq|lines 346-347|0.9
+  device.id: datasheet_tq|lines 377-379|0.95
+  geometry.main_size: datasheet_tq|lines 349-356|0.95
+  geometry.spare_size: datasheet_tq|lines 349-356|0.95
+  geometry.pages_per_block: datasheet_tq|lines 349-353|0.95
+  geometry.blocks: datasheet_tq|lines 349-353|0.95
+  constraints.ecc_reserved_start: datasheet_tq|lines 354-358,523-524|0.8
+  constraints.ecc_reserved_end: datasheet_tq|lines 354-358,523-524|0.8
+  constraints.otp_page_count: W25N01GV PDF|lines 3243-3254|0.95
+  constraints.unique_id_size: W25N01GV PDF|lines 3244-3248|0.85
+  constraints.parameter_page_size: W25N01GV PDF|lines 3330-3370|0.95
+  constraints.bad_block_marker_offset: W25N01GV PDF|lines 3330-3370, invalid block management|0.9
+  constraints.minimum_valid_blocks: W25N01GV PDF|lines 3354-3357|0.9
+  constraints.ecc_bits: W25N01GV PDF|lines 434-438,3732-3740|0.8
+  policy.name: datasheet_tq|manufacturer Winbond|0.85
+
+unsupported_features:
+  - bad_block_lut_links
+  - factory_bad_block_scan
+  - last_ecc_failure_page_address
+  - buffer_mode_continuous_read
+  - wp_e_quad_disable
+  - tpuw_enforcement

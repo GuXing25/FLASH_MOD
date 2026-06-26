@@ -6,11 +6,13 @@ device:
   manufacturer: Demo
   part_number: DEMO-NOR
   id: [0x5A, 0x10, 0x01]
+  unique_id: [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF]
 
 geometry:
   memory_size: 65536
   page_size: 256
   sector_size: 4096
+  block32_size: 32768
   block_size: 65536
   planes: 1
 
@@ -18,9 +20,23 @@ timing:
   read_us: 1
   program_us: 200
   sector_erase_us: 1000
+  block32_erase_us: 1500
+  block_erase_us: 2500
   chip_erase_us: 10000
   reset_us: 30
   puw_us: 0
+
+interface:
+  enabled: true
+  name: demo_chiplet_link
+  protocol: generic_chiplet
+  lanes: 1
+  data_width_bits: 32
+  clock_mhz: 500
+  fixed_latency_us: 0.05
+  turnaround_us: 0.02
+  packet_overhead_bytes: 8
+  max_payload_bytes: 256
 
 commands:
   read_id: true
@@ -28,6 +44,19 @@ commands:
   nor_read: true
   nor_program: true
   nor_erase: true
+  nor_block32_erase: true
+  nor_block_erase: true
+  nor_chip_erase: true
+  read_unique_id: true
+  read_sfdp: true
+  deep_power_down: true
+  release_power_down: true
+  suspend: true
+  resume: true
+  read_security_register: true
+  program_security_register: true
+  erase_security_register: true
+  lock_security_register: true
 
 registers:
   status1_default: 0x00
@@ -38,12 +67,40 @@ capabilities:
   quad_enable: false
   four_byte_address: false
   block_protect: false
-  suspend_resume: false
-  security_register: false
+  deep_power_down: true
+  suspend_resume: true
+  unique_id: true
+  sfdp: true
+  security_register: true
 
 constraints:
   require_wel: true
   require_qe_for_quad: true
+  address_bytes: 3
+  security_register_count: 3
+  security_register_size: 256
+  unique_id_size: 8
+  sfdp_size: 256
+
+transactions:
+  nor_read:
+    opcode_value: 0x03
+    opcode_bytes: 1
+    address_bytes: 0
+    dummy_bytes: 0
+    dummy_cycles: 0
+    fixed_request_bytes: 0
+    fixed_response_bytes: 0
+    command_lanes: 1
+    address_lanes: 1
+    data_lanes: 1
+    use_current_address_bytes: true
+    write_payload: false
+    read_response: true
+    turnaround: true
+  fast_read:
+    alias_of: nor_read
+    opcode_value: 0x0B
 
 policy:
   name: generic_nor
@@ -53,6 +110,21 @@ source:
   page: synthetic
   confidence: 1.0
 
+evidence:
+  device.name: demo|synthetic|1.0
+  device.class: demo|synthetic|1.0
+  device.id: demo|synthetic|1.0
+  geometry.memory_size: demo|synthetic|1.0
+  geometry.page_size: demo|synthetic|1.0
+  geometry.sector_size: demo|synthetic|1.0
+  geometry.block32_size: demo|synthetic|1.0
+  geometry.block_size: demo|synthetic|1.0
+  constraints.security_register_count: demo|synthetic|1.0
+  constraints.security_register_size: demo|synthetic|1.0
+  constraints.unique_id_size: demo|synthetic|1.0
+  constraints.sfdp_size: demo|synthetic|1.0
+  policy.name: demo|synthetic|1.0
+
 unsupported_features:
   - otp
-  - suspend_resume
+  - four_byte_address

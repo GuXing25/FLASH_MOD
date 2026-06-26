@@ -6,27 +6,43 @@ device:
   manufacturer: string
   part_number: string
   id: [byte, ...]
+  unique_id: [byte, ...]       # optional simulated unique ID bytes
 
 geometry:
   memory_size: uint64          # NOR
   page_size: uint32            # NOR or derived NAND page size
   sector_size: uint32          # NOR
+  block32_size: uint32         # NOR optional 32 KiB erase block
   block_size: uint32           # NOR optional common block size
   main_size: uint32            # NAND
   spare_size: uint32           # NAND
   pages_per_block: uint32      # NAND
   blocks: uint32               # NAND
   planes: uint32
+  dies: uint32
 
 timing:
   read_us: double
   page_read_us: double
   program_us: double
   sector_erase_us: double
+  block32_erase_us: double
   block_erase_us: double
   chip_erase_us: double
   reset_us: double
   puw_us: double
+
+interface:
+  enabled: bool
+  name: string                    # provisional chiplet link name
+  protocol: none | generic_chiplet
+  lanes: uint32                   # modeled parallel chiplet lanes
+  data_width_bits: uint32         # transfer width per lane
+  clock_mhz: double               # cycles per microsecond
+  fixed_latency_us: double        # command/adapter setup cost
+  turnaround_us: double           # request-to-response direction switch cost
+  packet_overhead_bytes: uint32   # header/CRC/flow-control bytes per packet
+  max_payload_bytes: uint32       # 0 means no fragmentation
 
 commands:
   read_id: bool
@@ -34,11 +50,30 @@ commands:
   nor_read: bool
   nor_program: bool
   nor_erase: bool
+  nor_block32_erase: bool
+  nor_block_erase: bool
+  nor_chip_erase: bool
+  read_unique_id: bool
+  read_sfdp: bool
+  deep_power_down: bool
+  release_power_down: bool
+  enter_4byte_address: bool
+  exit_4byte_address: bool
+  suspend: bool
+  resume: bool
+  read_security_register: bool
+  program_security_register: bool
+  erase_security_register: bool
+  lock_security_register: bool
+  enter_otp_mode: bool
+  exit_otp_mode: bool
   page_read: bool
   read_from_cache: bool
+  read_parameter_page: bool
   program_load: bool
   program_execute: bool
   block_erase: bool
+  copy_back: bool
 
 registers:
   status1_default: byte
@@ -54,7 +89,10 @@ capabilities:
   quad_enable: bool
   four_byte_address: bool
   block_protect: bool
+  deep_power_down: bool
   suspend_resume: bool
+  unique_id: bool
+  sfdp: bool
   otp: bool
   security_register: bool
   ecc_status: bool
@@ -63,6 +101,7 @@ capabilities:
   die_select: bool
   plane_select: bool
   read_retry: bool
+  parameter_page: bool
 
 constraints:
   require_wel: bool
@@ -72,11 +111,42 @@ constraints:
   max_partial_programs: uint32
   ecc_reserved_start: uint32
   ecc_reserved_end: uint32
+  initial_bad_blocks: [uint32]
   nor_protect_start: uint64
   nor_protect_length: uint64
+  address_bytes: uint32        # NOR power-on command address width, usually 3 or 4
+  security_register_count: uint32
+  security_register_size: uint32
+  otp_page_count: uint32       # NAND OTP pages exposed while OTP mode is active
+  read_retry_levels: uint32
+  unique_id_size: uint32       # Unique ID length when datasheet exposes a serial-number command
+  sfdp_size: uint32            # NOR SFDP addressable byte count modeled by read_sfdp
+  parameter_page_size: uint32  # SPI-NAND parameter page bytes exposed by read_parameter_page
+  bad_block_marker_offset: uint32
+  minimum_valid_blocks: uint32
+  ecc_bits: uint32
+
+transactions:
+  command_name:
+    opcode_value: uint32
+    has_opcode_value: bool
+    opcode_bytes: uint32
+    address_bytes: uint32
+    dummy_bytes: uint32
+    dummy_cycles: uint32
+    fixed_request_bytes: uint32
+    fixed_response_bytes: uint32
+    command_lanes: uint32
+    address_lanes: uint32
+    data_lanes: uint32
+    use_current_address_bytes: bool
+    write_payload: bool
+    read_response: bool
+    turnaround: bool
+    alias_of: string
 
 policy:
-  name: generic_nor | generic_spinand | winbond_family | micron_family | gigadevice_family
+  name: generic_nor | generic_spinand | winbond_family | micron_family | gigadevice_family | boya_family | macronix_family
   overrides:
     key: value
 
@@ -84,6 +154,9 @@ source:
   datasheet: string
   page: string
   confidence: double
+
+evidence:
+  field.path: "datasheet|page|confidence"
 
 unsupported_features:
   - string

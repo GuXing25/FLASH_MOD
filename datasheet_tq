@@ -1,0 +1,880 @@
+# datasheet_tq
+
+本文档汇总本项目中关于 Flash 数据手册提取的提问和提取结果。
+
+整理范围：
+
+1. BY25Q64ASSIG(R) / BY25Q64AS SPI NOR Flash
+2. W25Q32JVSSIQ SPI NOR Flash
+3. W25N01GVZEIG SPI NAND Flash
+4. MT29F2G01ABAGDWB-IT:G SPI NAND Flash
+
+================================================================================
+1. BY25Q64ASSIG(R) / BY25Q64AS SPI NOR Flash
+================================================================================
+
+【数据手册文件】
+
+C2686191_NOR+FLASH_BY25Q64ASSIG(R)_规格书_WJ79888_dual_Kimi+DeepSeek.pdf
+
+【问题原文】
+
+仔细阅读以下相关内容，主要关注存储体结构、接口、操作行为及其操作时序、行为约束等、其他物理电气特性可以暂时不关注。我现在用软件去模拟实现这个flash，并不需要一模一样的指令，我需要存储体结构、操作行为、操作时序、操作间约束、接口。所以你根据数据手册，继续提取相关内容。
+
+【回答 / 提取信息】
+
+# BY25Q64AS SPI NOR Flash Model
+
+这是一个基于 BY25Q64AS 数据手册整理出的 C++ 软件行为模型。代码结构沿用当前目录下几个 Flash 项目的分层框架：
+
+```text
+config_parser -> flash_hardware -> flash_event -> flash_core -> ftl -> flash_test -> main
+```
+
+模型关注软件可观察行为：存储体结构、SPI 指令接口、读写擦行为、状态寄存器、内部 busy 时序、保护约束、Deep Power-Down、Reset 和 Security Register。它不模拟电压、电流、封装和真实 SPI 波形。
+
+## 存储结构
+
+BY25Q64AS 是 64Mbit SPI NOR Flash：
+
+```text
+8 MiB array: 0x000000 - 0x7FFFFF
+├── 128 x 64 KiB blocks
+├── 256 x 32 KiB half-blocks
+├── 2048 x 4 KiB sectors
+└── 32768 x 256 B programmable pages
+```
+
+后端阵列镜像文件为 `storage_by25q.bin`。默认配置会在每次运行时重建该文件，大小为 8 MiB。
+
+## 已实现行为
+
+- 24-bit byte address。
+- `WEL/WIP` 状态机。
+- 三个状态寄存器：SR1、SR2、SR3。
+- `QE` 控制 Quad 指令。
+- `BP4..BP0 + CMP` 阵列保护范围。
+- `SRP1/SRP0 + /WP` 状态寄存器保护。
+- `LB1/LB2/LB3` Security Register OTP 锁位。
+- NOR 页编程使用 `old & new`，即 bit 只能从 `1` 写成 `0`。
+- 4 KiB sector erase、32 KiB block erase、64 KiB block erase、chip erase。
+- Program/Erase Suspend 和 Resume。
+- Deep Power-Down 和 Release。
+- `66h + 99h` 软件复位序列。
+- 3 个 256 B Security Register。
+- 简化 SFDP、Unique ID 和 ID 读取。
+- 事件驱动 busy 模式：program/erase/write-status 进入 pending，`WAIT` 或状态轮询推进时间。
+
+## 主要指令事件
+
+```text
+WRITE_ENABLE / WRITE_DISABLE
+READ_STATUS_1 / READ_STATUS_2 / READ_STATUS_3
+WRITE_STATUS_1 / WRITE_STATUS_2 / WRITE_STATUS_3
+READ_DATA / FAST_READ
+DUAL_OUTPUT_FAST_READ / DUAL_IO_FAST_READ
+QUAD_OUTPUT_FAST_READ / QUAD_IO_FAST_READ / QUAD_IO_WORD_FAST_READ
+PAGE_PROGRAM / QUAD_PAGE_PROGRAM / FAST_PAGE_PROGRAM
+SECTOR_ERASE / BLOCK_ERASE_32K / BLOCK_ERASE_64K / CHIP_ERASE
+PROGRAM_ERASE_SUSPEND / PROGRAM_ERASE_RESUME
+DEEP_POWER_DOWN_CMD / RELEASE_POWER_DOWN
+READ_MANUFACTURER_DEVICE_ID / READ_JEDEC_ID / READ_UNIQUE_ID
+READ_SECURITY_REGISTER / ERASE_SECURITY_REGISTER / PROGRAM_SECURITY_REGISTER
+READ_SFDP
+ENABLE_RESET / RESET_DEVICE
+WAIT
+```
+
+## 配置
+
+默认配置文件是 `by25q.conf`。常用项：
+
+```text
+MEMORY_SIZE 8388608
+PAGE_SIZE 256
+SECTOR_SIZE 4096
+BLOCK32_SIZE 32768
+BLOCK64_SIZE 65536
+F_R_MHZ 55
+F_C_MHZ 108
+T_PP_US 600
+T_SE_US 50000
+T_BE32_US 150000
+T_BE64_US 250000
+T_CE_US 25000000
+RESET_STORAGE_ON_START 1
+```
+
+`USE_MAX_TIME=1` 时使用数据手册中的最大操作时间。
+
+## 测试覆盖
+
+`flash_test.cpp` 当前会验证：
+
+- JEDEC ID：`68 40 17`。
+- WREN -> 4 KiB sector erase -> WIP 轮询。
+- Page Program 和 Read。
+- 不擦除二次编程：`0xAA & 0xF0 = 0xA0`。
+- 写 SR2 设置 `QE` 后执行 Quad Page Program 和 Quad Read。
+- Security Register 擦除、编程和读取。
+- Deep Power-Down 中普通命令被忽略，Release 后恢复。
+
+正常结束会输出：
+
+```text
+Test Result: PASS
+```
+
+================================================================================
+2. W25Q32JVSSIQ SPI NOR Flash
+================================================================================
+
+【数据手册文件】
+
+C179173_NOR+FLASH_W25Q32JVSSIQ_规格书_WJ323642_dual_Kimi+DeepSeek.pdf
+
+【问题原文】
+
+同样的要求，仔细阅读以下相关内容，主要关注存储体结构、接口、操作行为及其操作时序、行为约束等、其他物理电气特性可以暂时不关注。我现在用软件去模拟实现这个flash，并不需要一模一样的指令，我需要存储体结构、操作行为、操作时序、操作间约束、接口。所以你根据数据手册，首先提取相关内容。
+
+【回答 / 提取信息】
+
+# W25Q32JVSSIQ SPI NOR Flash 软件模型
+
+这是一个基于 Winbond **W25Q32JVSSIQ** 数据手册整理的 C++ 命令级行为模型。
+
+项目关注软件可观察行为：存储阵列、SPI/Dual/Quad SPI 指令、读写擦、状态寄存器、busy 时序、保护机制、Deep Power-Down、Reset、SFDP 和 Security Register。它不模拟电压、电流、封装，也不模拟逐 SCLK 的真实 SPI 波形。
+
+## 分层结构
+
+代码沿用当前目录下几个 Flash 项目的分层框架：
+
+```text
+config_parser -> flash_hardware -> flash_event -> flash_core -> ftl -> flash_test -> main
+```
+
+各模块职责：
+
+- `config_parser.*`：读取 `w25q.conf`，生成 `FlashConfig`。
+- `flash_hardware.*`：保存页级元数据、busy 状态和当前时间。
+- `flash_event.*`：封装一次上层提交的 Flash 命令事件。
+- `flash_core.*`：实现 W25Q32JVSSIQ 的核心命令行为。
+- `ftl.*`：简单控制器/FTL 外观层，负责 FIFO 命令队列。
+- `flash_test.*`：内置端到端行为测试。
+- `main.cpp`：程序入口。
+
+## 存储结构
+
+W25Q32JVSSIQ 是 32Mbit SPI NOR Flash：
+
+```text
+4 MiB array: 0x000000 - 0x3FFFFF
+├── 64 x 64 KiB blocks
+├── 128 x 32 KiB blocks
+├── 1024 x 4 KiB sectors
+└── 16384 x 256 B programmable pages
+```
+
+后端阵列镜像文件是：
+
+```text
+storage_w25q.bin
+```
+
+默认配置会在每次运行时重建该文件，大小为 4 MiB，初始内容全为 `0xFF`。
+
+## 已实现行为
+
+- 24-bit 字节地址。
+- `BUSY/WIP`、`WEL`、`SUS` 状态机。
+- 三个状态寄存器：`SR1`、`SR2`、`SR3`。
+- `QE` 控制 Quad 指令；当前模型默认 `QE=1`。
+- `SEC/TB/BP[2:0] + CMP` 阵列保护范围。
+- `SR3.WPS=1` 时启用独立 Block/Sector Lock。
+- 上电和 Reset 后独立锁默认全锁。
+- `SRP/SRL + /WP` 状态寄存器保护。
+- `LB1/LB2/LB3` Security Register OTP 锁位。
+- NOR 页编程语义：`new_value = old_value & input_value`，只能把 bit 从 `1` 写成 `0`。
+- Page Program 超过 256 B 页尾时在同一页内回绕。
+- 4 KiB sector erase。
+- 32 KiB block erase。
+- 64 KiB block erase。
+- chip erase。
+- Program/Erase Suspend 和 Resume。
+- Deep Power-Down 和 Release。
+- `66h + 99h` 软件复位序列。
+- 3 个 256 B Security Register。
+- 简化 SFDP、Unique ID、Device ID 和 JEDEC ID 读取。
+- 上电写禁止窗口 `tPUW=5ms`：窗口内写使能、写、擦、写状态寄存器会被忽略。
+- 事件驱动 busy 模式：program/erase/write-status 进入 pending，`WAIT` 或状态轮询推进时间。
+
+## 主要指令事件
+
+```text
+WRITE_ENABLE / WRITE_DISABLE
+READ_STATUS_1 / READ_STATUS_2 / READ_STATUS_3
+WRITE_STATUS_1 / WRITE_STATUS_2 / WRITE_STATUS_3
+WRITE_ENABLE_VOLATILE_STATUS
+
+READ_DATA / FAST_READ
+DUAL_OUTPUT_FAST_READ / DUAL_IO_FAST_READ
+QUAD_OUTPUT_FAST_READ / QUAD_IO_FAST_READ / QUAD_IO_WORD_FAST_READ
+SET_BURST_WITH_WRAP
+
+PAGE_PROGRAM / QUAD_PAGE_PROGRAM / FAST_PAGE_PROGRAM
+SECTOR_ERASE / BLOCK_ERASE_32K / BLOCK_ERASE_64K / CHIP_ERASE
+PROGRAM_ERASE_SUSPEND / PROGRAM_ERASE_RESUME
+
+DEEP_POWER_DOWN_CMD / RELEASE_POWER_DOWN
+READ_DEVICE_ID / READ_MANUFACTURER_DEVICE_ID
+READ_MANUFACTURER_DEVICE_ID_DUAL / READ_MANUFACTURER_DEVICE_ID_QUAD
+READ_JEDEC_ID / READ_UNIQUE_ID
+
+READ_SECURITY_REGISTER / ERASE_SECURITY_REGISTER / PROGRAM_SECURITY_REGISTER
+READ_SFDP
+
+READ_BLOCK_LOCK
+INDIVIDUAL_BLOCK_LOCK / INDIVIDUAL_BLOCK_UNLOCK
+GLOBAL_BLOCK_LOCK / GLOBAL_BLOCK_UNLOCK
+
+ENABLE_RESET / RESET_DEVICE
+WAIT
+```
+
+## 配置文件
+
+默认配置文件是：
+
+```text
+w25q.conf
+```
+
+配置格式支持：
+
+```text
+KEY VALUE
+KEY = VALUE
+```
+
+`#` 后面的内容会被当作注释忽略。
+
+常用配置项：
+
+```text
+MEMORY_SIZE 4194304
+PAGE_SIZE 256
+SECTOR_SIZE 4096
+BLOCK32_SIZE 32768
+BLOCK64_SIZE 65536
+F_R_MHZ 50
+F_C_MHZ 133
+T_PUW_US 5000
+T_PP_US 400
+T_SE_US 45000
+T_BE32_US 120000
+T_BE64_US 150000
+T_CE_US 10000000
+RESET_STORAGE_ON_START 1
+```
+
+说明：
+
+- `USE_MAX_TIME=0`：使用典型时序。
+- `USE_MAX_TIME=1`：使用最大时序。
+- `AUTO_COMPLETE=0`：program/erase/write-status 进入 pending，等待时间推进后完成。
+- `AUTO_COMPLETE=1`：启动内部操作后立即推进到完成时间。
+- `WRAP_ADDRESS=1`：地址超过 `0x3FFFFF` 后回绕到 `0x000000`。
+- `RESET_STORAGE_ON_START=1`：每次运行重建 `storage_w25q.bin`。
+
+## 核心执行流程
+
+```text
+main.cpp
+  -> load_config("w25q.conf")
+  -> FlashChip
+  -> FlashCore
+  -> FTL
+  -> flash_test_run()
+  -> FTL::run()
+  -> FlashCore::execute()
+```
+
+`FlashCore::execute()` 会先处理全局状态：
+
+- pending 操作是否到期。
+- 是否处于 Deep Power-Down。
+- 是否 `WIP=1`。
+- 是否处于 reset enable 窗口。
+- 写类命令是否已经过了 `tPUW`。
+
+然后再根据 `EventType` 分派到具体命令实现。
+
+## 内置测试覆盖
+
+`flash_test.cpp` 当前验证：
+
+- JEDEC ID：`EF 40 16`。
+- 默认 `QE=1`。
+- `tPUW` 后执行 `WREN -> 4 KiB sector erase -> BUSY 轮询`。
+- Page Program 和 Read。
+- 不擦除二次编程：`0xAA & 0xF0 = 0xA0`。
+- Quad Page Program 和 Quad Read。
+- `WPS=1` 后独立锁默认保护，解锁后才能擦写。
+- Security Register 擦除、编程和读取。
+- Deep Power-Down 中普通命令被忽略，Release 后恢复。
+
+正常结束会输出：
+
+```text
+Test Result: PASS
+```
+
+================================================================================
+3. W25N01GVZEIG SPI NAND Flash
+================================================================================
+
+【数据手册文件】
+
+C907680_NAND+FLASH_W25N01GVZEIG_规格书_WJ307934_dual_Kimi+DeepSeek.pdf
+
+【问题原文】
+
+同样的要求，仔细阅读以下相关内容，主要关注存储体结构、接口、操作行为及其操作时序、行为约束等、其他物理电气特性可以暂时不关注。我现在用软件去模拟实现这个flash，并不需要一模一样的指令，我需要存储体结构、操作行为、操作时序、操作间约束、接口。所以你根据数据手册，首先提取相关内容。
+
+【回答 / 提取信息】
+
+- PDF 对应器件：W25N01GVxxIG/IT；用户指定型号为 `W25N01GVZEIG`，ZE 封装，IG 默认。
+- 类型：1G-bit Serial SLC NAND，128MiB user data。
+
+## 存储体结构
+
+- 阵列：1024 blocks。
+- 每块：64 pages/block。
+- 总页数：65536 pages。
+- Page：2048 main bytes + 64 spare bytes = 2112 bytes。
+- Block main size：64 * 2048 = 128KiB。
+- Page address `PA[15:0]`：
+  - `PA[15:6]` 为 block。
+  - `PA[5:0]` 为 block 内 page。
+- Column `CA[11:0]`：
+  - `0x000-0x7FF` 为 main area。
+  - `0x800-0x83F` 为 spare area。
+  - `CA[15:12]` 为 dummy。
+- Page 可分为 4 个 512B main sector + 4 个 16B spare segment。
+- 坏块标记：
+  - block page0 byte0 非 FF。
+  - 或 64B spare 的第一个字节。
+
+## 接口
+
+- 标准 SPI / Dual SPI / Quad SPI。
+- SPI mode 0 / mode 3。
+- 输入在 SCK rising edge 锁存，输出在 falling edge 变化。
+- `fC` 最高 104MHz。
+- Quad 使用 IO0-IO3。
+- 该器件没有 QE bit。
+- `WP-E=0` 时可用 Quad；`WP-E=1` 会禁止所有 Quad 指令。
+- JEDEC ID：
+  - `9Fh + 8 dummy clocks`
+  - 返回 `EF AA 21`。
+
+## 状态寄存器
+
+读写方式：
+
+- Read：`0Fh/05h + SR address`
+- Write：`1Fh/01h + SR address + byte`
+
+寄存器地址：
+
+- SR1 / Protection Register：`Axh`
+- SR2 / Configuration Register：`Bxh`
+- SR3 / Status Register：`Cxh`
+
+SR1 bits：
+
+- `S7 SRP1`
+- `S6 BP3`
+- `S5 BP2`
+- `S4 BP1`
+- `S3 BP0`
+- `S2 TB`
+- `S1 WP-E`
+- `S0 SRP0`
+
+SR1 默认：
+
+- 上电/Reset 后 `BP[3:0]=1`
+- `TB=1`
+- `WP-E=0`
+- SRP bits = 0
+- 默认值 `0x7C`
+- 含义：默认全阵列保护。
+
+SR2 bits：
+
+- `S7 OTP-L`
+- `S6 OTP-E`
+- `S5 SR1-L`
+- `S4 ECC-E`
+- `S3 BUF`
+- `S2-S0 reserved`
+
+SR2 默认：
+
+- IG 默认 `ECC-E=1`
+- IG 默认 `BUF=1`
+- 默认值 `0x18`
+- IT 默认会是 BUF=0；当前用户型号为 IG。
+
+SR3 bits：
+
+- `S6 LUT-F`
+- `S5 ECC-1`
+- `S4 ECC-0`
+- `S3 P-FAIL`
+- `S2 E-FAIL`
+- `S1 WEL`
+- `S0 BUSY`
+
+## 核心操作行为
+
+### Data Buffer
+
+- 内部 Data Buffer 为 2112 bytes。
+- 上电初始化会默认加载 page 0。
+- 上电初始化约 500us。
+- IG 默认 `BUF=1`，`ECC-E=1`。
+
+### 读流程
+
+1. `Page Data Read 13h + dummy + PA`
+2. 等待 `tRD`
+3. 阵列页转入 Data Buffer
+4. 再通过 `Read/Fast/Dual/Quad` 从 Data Buffer 输出
+
+约束：
+
+- `Page Data Read` 期间 BUSY=1。
+- 可通过状态寄存器轮询。
+- Page Data Read 后 WEL 会清零。
+
+BUF=1 Buffer Read Mode：
+
+- 读命令使用 column address。
+- 从指定 column 输出到 2112B Data Buffer 末尾。
+- 到页尾后输出高阻。
+- `/CS` 拉高后 Buffer 保持不变，设备立即 ready。
+
+BUF=0 Continuous Read：
+
+- 输出从 buffer byte0 开始。
+- 读完 2048 main bytes 后继续下一页 main data。
+- 单次 read 可流式读完整阵列。
+- `/CS` 拉高结束后设备 busy 约 5us。
+- Buffer 失效，需要重新 Page Data Read。
+
+读命令：
+
+- `03h`
+- `0Bh`
+- `0Ch`
+- `3Bh`
+- `3Ch`
+- `6Bh`
+- `6Ch`
+- `BBh`
+- `BCh`
+- `EBh`
+- `ECh`
+
+### 编程流程
+
+标准序列：
+
+1. `Write Enable 06h`
+2. `Program Data Load 02h` 或 `Random Program Load 84h`
+3. `Program Execute 10h + dummy + PA`
+4. 等待 `tPP`
+
+Program Load：
+
+- 需要 WEL=1。
+- `02h` 带 16-bit column address 和数据。
+- `02h` 会把未加载 Data Buffer 字节置为 FF。
+- `84h` 只更新指定 bytes，其他 buffer 内容保持不变。
+- Quad load：
+  - `32h`
+  - `34h`
+  - 与 x1 行为相同，但四线输入。
+  - `WP-E=1` 时禁用。
+
+Program Execute：
+
+- 将 Data Buffer 写入阵列页。
+- 执行期间 BUSY=1。
+- 完成后 WEL 清零。
+- 写受保护/锁定页会置 `P-FAIL`。
+
+编程约束：
+
+- 单次 program 可接受 1-2112 bytes。
+- 超出 buffer 的 bytes 忽略。
+- ECC-E=1 时可接受全部 2112 bytes，但 ECC parity bytes 会被内部 ECC 覆盖；软件模型可简化。
+- 每页最多 4 次 partial page program。
+- 同一 block 内必须按 page 地址从低到高顺序编程。
+- 越序编程应置 `P-FAIL`。
+- NAND bit 行为：`old & new`。
+
+### 擦除流程
+
+标准序列：
+
+1. `Write Enable`
+2. `Block Erase D8h + dummy + PA`
+3. 等待 `tBE`
+
+行为：
+
+- 擦除 PA 所在 128KiB block。
+- BUSY=1。
+- 完成后 WEL 清零。
+- 目标 block 受保护时：
+  - 命令被忽略。
+  - `E-FAIL` 置位。
+
+## BUSY 期间指令约束
+
+BUSY=1 时：
+
+- 只接受 Read Status Register。
+- 只接受 Read JEDEC ID。
+- 其他指令忽略。
+
+## 写保护
+
+- 默认全阵列保护，必须清 BP/TB 才能写擦。
+- Protection table 最小粒度 256KiB，即 2 blocks。
+- `TB=0` 保护 upper。
+- `TB=1` 保护 lower。
+- Program/Erase 若覆盖任意受保护区域，命令忽略。
+- `WP-E=1 && /WP=GND`：
+  - 整片只读。
+  - 包括 SR、array、OTP。
+- SRP1/SRP0 可锁状态寄存器。
+
+保护表：
+
+- `BP[3:0]=0000`：none。
+- `TB=0`：
+  - 0001 top 2 blocks / 256KB
+  - 0010 top 4 blocks / 512KB
+  - 0011 top 8 blocks / 1MB
+  - 0100 top 16 blocks / 2MB
+  - 0101 top 32 blocks / 4MB
+  - 0110 top 64 blocks / 8MB
+  - 0111 top 128 blocks / 16MB
+  - 1000 top 256 blocks / 32MB
+  - 1001 top 512 blocks / 64MB
+  - `101x` 或 `11xx` all。
+- `TB=1`：
+  - 对应 bottom 2/4/8/.../512 blocks。
+  - `101x` 或 `11xx` all。
+
+## BBM
+
+- 最大坏块数量：最多 20。
+- 上电/首次写擦前应扫描坏块标记。
+- `A1h Bad Block Management`：
+  - 需要 WEL。
+  - 输入 LBA/PBA。
+  - 建立 LUT 映射。
+  - 最多 20 links。
+  - LUT 满时 `LUT-F=1`。
+  - 重复 PBA/地址禁止。
+- `A5h Read BBM LUT`：
+  - 输出 20 个 LBA/PBA entries。
+  - 未使用 entry 全 00。
+  - `LBA[15]` 表示 enabled。
+  - `LBA[14]` 表示 invalid。
+- `A9h Last ECC Failure Page Address`：
+  - 连续读中 ECC 不可纠错时输出最后失败页地址。
+
+## OTP
+
+- `OTP-E=1` 进入 OTP mode。
+- `PA=00` Unique ID page：
+  - read-only。
+  - 32B x16。
+- `PA=01` Parameter page：
+  - read-only。
+  - 256B x3。
+- `PA=02..0B`：
+  - 10 个 OTP pages。
+  - 每页 2112 bytes。
+  - program-only。
+  - 可通过 OTP-L 锁定。
+- OTP mode 下 read 总是使用 Buffer Read command structure，不受 BUF 影响。
+
+## Reset
+
+- `FFh` Reset。
+- 终止正在进行的操作。
+- volatile settings 恢复默认。
+- 如果在 program/erase 期间 reset，数据可能损坏。
+- `tRST`：
+  - read/reset 约 5us。
+  - program reset 约 10us。
+  - erase reset 约 500us。
+- Reset 期间不接受命令。
+
+## 时序
+
+- `fC`：104MHz。
+- `tVSL`：1ms。
+- `tPUW`：5ms。
+- `tW`：50ns。
+- `tRD1`：25us，ECC disabled。
+- `tRD2`：60us，ECC enabled。
+- `tPP`：250us typ，700us max。
+- `tBE`：2ms typ，10ms max。
+- `NoP`：4。
+- Continuous Read 结束 busy：约 5us。
+- 初始上电/默认 page0 load：约 500us。
+
+## Parameter Page 可建模字段
+
+- signature：`4F 4E 46 49`。
+- byte80-83：2048 data bytes/page。
+- byte84-85：64 spare bytes/page。
+- byte92-95：64 pages/block。
+- byte96-99：1024 blocks/LUN。
+- byte100：1 LUN。
+- byte103-104：max bad blocks `0x0014`。
+- byte110：programs/page = 4。
+- byte133-134：max page program = 700us。
+- byte135-136：max block erase = 10000us。
+- byte137-138：max page read = 50us。
+
+================================================================================
+4. MT29F2G01ABAGDWB-IT:G SPI NAND Flash
+================================================================================
+
+【数据手册文件】
+
+C410863_NAND+FLASH_MT29F2G01ABAGDWB-IT-G_规格书_WJ187891_dual_Kimi+DeepSeek.pdf
+
+【问题原文】
+
+同样的要求，仔细阅读以下相关内容，主要关注存储体结构、接口、操作行为及其操作时序、行为约束等、其他物理电气特性可以暂时不关注。我现在用软件去模拟实现这个flash，并不需要一模一样的指令，我需要存储体结构、操作行为、操作时序、操作间约束、接口。所以你根据数据手册，首先提取相关内容。
+
+【回答 / 提取信息】
+
+已阅读并提取 `MT29F2G01ABAGDWB-IT:G` 数据手册中和软件仿真相关的内容。下面是后续建模最关键的信息。
+
+**1. 存储体结构**
+
+- 类型：Micron 2Gb、3.3V、x1/x2/x4 SPI NAND，SLC NAND。
+- 主阵列容量：2Gbit = 256MiB 用户数据区。
+- 实际含 spare 总组织：2176Mb。
+- 每页：2176 bytes = 2048B main + 128B spare。
+- 每块：64 pages。
+- 每块大小：`64 * 2176 = 136KB`，其中 main 区 `128KB`，spare 区 `8KB`。
+- 总块数：2048 blocks。
+- Plane：2 个 plane，每 plane 1024 blocks。
+- Plane 分布：偶数 block 在一个 plane，奇数 block 在另一个 plane。
+- 行地址：`RA[16:6]` 为 block，`RA[5:0]` 为 block 内 page。
+- 列地址：`CA[11:0]`，可编码 0..4095，但只有 `0..2175` 有效，`2176..4095` 不存在。
+- `RA6` 控制 plane 选择，也就是 block 奇偶影响 plane。
+
+**2. 接口**
+
+- SPI Mode：支持 Mode 0 和 Mode 3。
+- 输入采样：SCK 上升沿锁存命令、地址、输入数据。
+- 输出变化：SCK 下降沿输出数据。
+- 引脚：`CS#`、`SCK`、`SI/IO0`、`SO/IO1`、`WP#/IO2`、`HOLD#/IO3`。
+- 支持 Standard SPI 和 Extended SPI。
+- x1：单线命令/地址/数据。
+- x2/x4：命令和部分地址仍可单线，数据可通过 IO[1:0] 或 IO[3:0]。
+- x4 读期间主机不要把 `WP#`、`HOLD#` 当普通控制脚驱动，因为它们复用为 IO2/IO3。
+- 最大时钟：普通 SPI 最高 133MHz；Dual I/O `BBh` 和 Quad I/O `EBh` 最高 108MHz。
+
+**3. 主要命令**
+
+- `FFh` RESET。
+- `0Fh` GET FEATURES，1 字节 feature address，读 1 字节。
+- `1Fh` SET FEATURES，1 字节 feature address，写 1 字节。
+- `9Fh` READ ID，1 dummy byte，返回 `2Ch 24h`。
+- `13h` PAGE READ，把阵列页读入 cache register。
+- `03h/0Bh` READ FROM CACHE x1。
+- `3Bh` READ FROM CACHE x2。
+- `6Bh` READ FROM CACHE x4。
+- `BBh` READ FROM CACHE Dual I/O。
+- `EBh` READ FROM CACHE Quad I/O。
+- `30h` READ PAGE CACHE RANDOM，用于流水读。
+- `3Fh` READ PAGE CACHE LAST，结束流水读。
+- `06h` WRITE ENABLE，置 WEL。
+- `04h` WRITE DISABLE，清 WEL。
+- `02h` PROGRAM LOAD x1。
+- `84h` PROGRAM LOAD RANDOM DATA x1。
+- `32h` PROGRAM LOAD x4。
+- `34h` PROGRAM LOAD RANDOM DATA x4。
+- `10h` PROGRAM EXECUTE。
+- `D8h` BLOCK ERASE。
+- `2Ch` PERMANENT BLOCK LOCK PROTECTION。
+
+**4. 读操作行为**
+
+普通读是两阶段：
+
+1. `13h PAGE READ + 24-bit row address`
+   - 2Gb 设备地址为 7 dummy bits + 17-bit block/page address。
+   - 阵列页传输到 cache register。
+   - 期间 OIP=1，耗时 `tRD`。
+   - 可用 `GET FEATURES(C0h)` 轮询状态。
+
+2. `READ FROM CACHE`
+   - `03h/0Bh/3Bh/6Bh/BBh/EBh` 从 cache 输出。
+   - 需要 16-bit column/address 字段，本质是 dummy/plane select + 12-bit column。
+   - 输出从列地址开始自动递增，最多读到 2176B 页尾。
+
+额外流水读：
+
+- `30h READ PAGE CACHE RANDOM` 在 `OIP=0 && CRBSY=0` 时接受。
+- 它把上一页从 data register 转到 cache register，同时后台把新页从阵列读到 data register。
+- `CRBSY=1` 表示后台页读仍在进行。
+- `3Fh READ PAGE CACHE LAST` 结束流水读，把最后一页从 data register 复制到 cache。
+
+**5. 编程操作行为**
+
+页编程序列：
+
+1. `06h WRITE ENABLE`
+2. `02h PROGRAM LOAD` 或 `84h PROGRAM LOAD RANDOM DATA`
+3. `10h PROGRAM EXECUTE`
+4. `0Fh GET FEATURES(C0h)` 轮询结果
+
+建模要点：
+
+- Program Load 写入 2176B cache register。
+- `02h` 会先把 cache buffer 重置为全 `FFh`，再写入指定列数据。
+- `84h` 不清 cache，只覆盖指定列范围，未指定位置保持不变。
+- x4 版本 `32h/34h` 行为一致，只是数据从四线输入。
+- 单次可加载 1..2176 bytes；超过 2176 的字节被忽略。
+- `10h PROGRAM EXECUTE` 把 cache 写入指定阵列页，期间 OIP=1，耗时 `tPROG`。
+- 单页最多 4 次 partial-page program。
+- NAND 真实写入建议模拟为 `old_data & new_data`，不能把 0 写回 1。
+- 成功 PROGRAM/ERASE 后 WEL 清零。
+- 对无效地址、锁定区域、受保护区域、OTP 保护区编程，会置 `P_Fail`。
+
+**6. 擦除操作行为**
+
+块擦序列：
+
+1. `06h WRITE ENABLE`
+2. `D8h BLOCK ERASE + 24-bit row/block address`
+3. `0Fh GET FEATURES(C0h)` 轮询状态
+
+建模要点：
+
+- 擦除单位是 block。
+- 每 block 为 64 页，main 区 128KB，含 spare 为 136KB。
+- 未执行 WREN 时，擦除序列忽略。
+- 擦除期间 OIP=1，耗时 `tERS`。
+- 擦除成功后 block 全部恢复 `FFh`，WEL 清零。
+- 擦除锁定区域或擦除失败，置 `E_Fail`。
+
+**7. Feature / Status 寄存器**
+
+Feature address：
+
+- `A0h` Block Lock Register，R/W。
+- `B0h` Configuration Register，R/W。
+- `C0h` Status Register，R。
+- `D0h` Die Select Register，R/W。
+
+`A0h` Block Lock 位：
+
+- bit7 `BRWD`
+- bit6 `BP3`
+- bit5 `BP2`
+- bit4 `BP1`
+- bit3 `BP0`
+- bit2 `TB`
+- bit1 `WP#/HOLD# Disable`
+- bit0 reserved
+
+上电默认：`BP[3:0]=1111`，`TB=1`，整片 2048 blocks 锁定。解锁全片：`SET FEATURES(A0h)=00h`。Reset 不会清除 block lock 状态。
+
+`B0h` Configuration 位：
+
+- bit7 `CFG2`
+- bit6 `CFG1`
+- bit5 `LOT_EN`
+- bit4 `ECC_EN`
+- bit1 `CFG0`
+- 其他保留
+
+默认 ECC 开启。Reset 不改变 ECC_EN 等配置，只清 `CFG[2:0]` 回普通模式。
+
+`C0h` Status 位：
+
+- bit7 `CRBSY`
+- bit6 `ECCS2`
+- bit5 `ECCS1`
+- bit4 `ECCS0`
+- bit3 `P_Fail`
+- bit2 `E_Fail`
+- bit1 `WEL`
+- bit0 `OIP`
+
+**8. ECC 与坏块**
+
+- 内部 ECC 默认开启，8-bit ECC。
+- ECC_EN 在 `B0h bit4` 控制。
+- 编程时计算 ECC 并存入 spare。
+- 读取时修正 1..8 bit 错误，只输出修正后的数据。
+- ECC 状态：
+  - `000` 无错误
+  - `001` 1-3 bit 已纠正
+  - `010` >8 bit 未纠正
+  - `011` 4-6 bit 已纠正，建议刷新
+  - `101` 7-8 bit 已纠正，必须刷新
+- Spare 区范围：`0x800..0x87F`。
+- 坏块标记：每块第一页 spare 第一个字节，即 byte `2048`。
+- 坏块标记值：`00h`。
+- 总块数 2048，最小有效块数 2008，最多坏块 40。
+- 出厂保证前 8 个 block 有效。
+
+**9. 关键时序**
+
+- `fC`：最高 133MHz。
+- Dual/Quad I/O `BBh/EBh`：最高 108MHz。
+- `tRD`：
+  - ECC disabled：max 25us
+  - ECC enabled：typ 46us，max 70us
+- `tPROG`：
+  - ECC disabled：typ 200us，max 600us
+  - ECC enabled：typ 220us，max 600us
+- `tERS`：typ 2ms，max 10ms。
+- `tRCBSY`：
+  - ECC disabled：max 5us
+  - ECC enabled：typ 40us，max 50us
+- `tPOR`：max 1.25ms。
+- Reset during READ/PROGRAM/ERASE：
+  - ECC disabled：30/35/525us
+  - ECC enabled：75/80/570us
+- 上电：VCC 到写禁止电压后至少 250us 才可发 RESET；默认也支持不显式 RESET，内部自动初始化并自动加载 block0/page0 到 cache，1.25ms 后可首次访问。
+
+**10. 仿真实现建议**
+
+核心状态建议至少包含：
+
+- 完整阵列：`2048 blocks * 64 pages * 2176 bytes`。
+- cache register：2176B。
+- data register：2176B，用于 `30h/3Fh` 流水读。
+- feature registers：A0h/B0h/C0h/D0h。
+- 状态：`OIP`、`CRBSY`、`WEL`、`P_Fail`、`E_Fail`、`ECCS`。
+- block metadata：locked、permanent_locked、bad、page partial program count。
+- 时间模型：每个操作推进 `tRD/tPROG/tERS/tRCBSY/tPOR/tRST`。
+- 默认启动状态：ECC 开、整片锁定、block0/page0 自动加载到 cache。

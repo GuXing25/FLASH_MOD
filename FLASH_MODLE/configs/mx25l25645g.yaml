@@ -1,0 +1,91 @@
+schema_version: 1
+
+device:
+  name: MX25L25645G
+  class: NOR
+  manufacturer: Macronix
+  part_number: MX25L25645GM2I-08G
+  id: [0xC2, 0x20, 0x19]
+
+geometry:
+  memory_size: 33554432
+  page_size: 256
+  sector_size: 4096
+  block32_size: 32768
+  block_size: 65536
+  planes: 1
+
+timing:
+  read_us: 1
+  program_us: 250
+  sector_erase_us: 30000
+  block32_erase_us: 180000
+  block_erase_us: 380000
+  chip_erase_us: 110000000
+  reset_us: 30
+  puw_us: 0
+
+commands:
+  read_id: true
+  reset: true
+  nor_read: true
+  nor_program: true
+  nor_erase: true
+  nor_block32_erase: true
+  nor_block_erase: true
+  nor_chip_erase: true
+  read_sfdp: true
+  deep_power_down: true
+  release_power_down: true
+  enter_4byte_address: true
+  exit_4byte_address: true
+  suspend: true
+  resume: true
+
+registers:
+  status1_default: 0x00
+  status2_default: 0x00
+  status3_default: 0x00
+
+capabilities:
+  quad_enable: true
+  four_byte_address: true
+  block_protect: true
+  deep_power_down: true
+  suspend_resume: true
+  sfdp: true
+
+constraints:
+  require_wel: true
+  require_qe_for_quad: true
+  address_bytes: 3
+  sfdp_size: 256
+
+policy:
+  name: macronix_family
+
+source:
+  datasheet: C190799_NOR+FLASH_MX25L25645GM2I-08G_规格书_WJ254328_dual_Kimi+DeepSeek.pdf
+  page: extracted text lines 1456-1460, 3315-3328, 10770-10795
+  confidence: 0.88
+
+evidence:
+  device.name: MX25L25645G PDF|title and command table|0.9
+  device.class: MX25L25645G PDF|lines 526-528,1456-1460|0.9
+  device.id: MX25L25645G PDF|lines 3315-3328|0.95
+  geometry.memory_size: MX25L25645G PDF|device density 256Mbit|0.9
+  geometry.page_size: MX25L25645G PDF|lines 1456-1460,10770-10795|0.9
+  geometry.sector_size: MX25L25645G PDF|lines 526-528,9036-9042|0.95
+  geometry.block32_size: MX25L25645G PDF|lines 526-528,9036-9042|0.95
+  geometry.block_size: MX25L25645G PDF|lines 526-528,9036-9042|0.95
+  constraints.sfdp_size: MX25L25645G PDF|lines 8535-8585,8621-8719|0.85
+  policy.name: MX25L25645G PDF|manufacturer Macronix|0.8
+
+unsupported_features:
+  - secured_otp_area
+  - security_register_status_bits
+  - individual_sector_protect_wpsel_spb_dpb
+  - vendor_bp_tb_cmp_decode
+  - suspend_resume_exact_opcodes
+  - full_sfdp_parameter_table
+  - qpi_mode

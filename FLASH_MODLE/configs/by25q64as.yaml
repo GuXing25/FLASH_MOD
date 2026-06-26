@@ -1,0 +1,100 @@
+schema_version: 1
+
+device:
+  name: BY25Q64AS
+  class: NOR
+  manufacturer: BOYA
+  part_number: BY25Q64ASSIGR
+  id: [0x68, 0x40, 0x17]
+
+geometry:
+  memory_size: 8388608
+  page_size: 256
+  sector_size: 4096
+  block32_size: 32768
+  block_size: 65536
+  planes: 1
+
+timing:
+  read_us: 1
+  program_us: 600
+  sector_erase_us: 50000
+  block32_erase_us: 150000
+  block_erase_us: 250000
+  chip_erase_us: 25000000
+  reset_us: 30
+  puw_us: 0
+
+commands:
+  read_id: true
+  reset: true
+  nor_read: true
+  nor_program: true
+  nor_erase: true
+  nor_block32_erase: true
+  nor_block_erase: true
+  nor_chip_erase: true
+  read_unique_id: true
+  read_sfdp: true
+  deep_power_down: true
+  release_power_down: true
+  suspend: true
+  resume: true
+  read_security_register: true
+  program_security_register: true
+  erase_security_register: true
+  lock_security_register: true
+
+registers:
+  status1_default: 0x00
+  status2_default: 0x00
+  status3_default: 0x00
+
+capabilities:
+  quad_enable: true
+  four_byte_address: false
+  block_protect: true
+  deep_power_down: true
+  suspend_resume: true
+  unique_id: true
+  sfdp: true
+  otp: true
+  security_register: true
+
+constraints:
+  require_wel: true
+  require_qe_for_quad: true
+  security_register_count: 3
+  security_register_size: 256
+  unique_id_size: 8
+  sfdp_size: 256
+
+policy:
+  name: boya_family
+
+source:
+  datasheet: datasheet_tq
+  page: lines 36-120
+  confidence: 0.86
+
+evidence:
+  device.name: datasheet_tq|lines 13-38|0.9
+  device.class: datasheet_tq|lines 36-40|0.9
+  device.id: datasheet_tq|line 114|0.95
+  geometry.memory_size: datasheet_tq|lines 38-45|0.95
+  geometry.page_size: datasheet_tq|lines 38-45|0.95
+  geometry.sector_size: datasheet_tq|lines 38-45|0.95
+  geometry.block32_size: BY25Q64AS PDF|lines 32-51,747-748,1483-1485|0.95
+  geometry.block_size: datasheet_tq|lines 40-41,91-92|0.9
+  constraints.security_register_count: BY25Q64AS PDF|lines 333-377,3628-3792|0.95
+  constraints.security_register_size: BY25Q64AS PDF|lines 333-377,3628-3792|0.95
+  constraints.unique_id_size: BY25Q64AS PDF|lines 3380-3387|0.9
+  constraints.sfdp_size: BY25Q64AS PDF|lines 3938-3975|0.85
+  policy.name: BY25Q64AS PDF|manufacturer BOYA|0.8
+
+unsupported_features:
+  - vendor_bp4_bp0_cmp_decode
+  - status_register_protect
+  - security_register_lock_bits
+  - suspend_resume_exact_status_bits
+  - full_sfdp_parameter_table

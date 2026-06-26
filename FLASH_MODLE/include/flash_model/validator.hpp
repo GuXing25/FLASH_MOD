@@ -9,6 +9,7 @@
 namespace flash_model {
 
 enum class ValidationLevel {
+    EvidenceGap,
     Warning,
     Error
 };
@@ -22,6 +23,7 @@ struct ValidationReport {
     std::vector<ValidationMessage> messages;
 
     bool ok() const;
+    void evidence_gap(const std::string& text);
     void error(const std::string& text);
     void warning(const std::string& text);
     std::string format() const;

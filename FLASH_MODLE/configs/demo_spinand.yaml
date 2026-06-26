@@ -29,6 +29,9 @@ commands:
   program_load: true
   program_execute: true
   block_erase: true
+  enter_otp_mode: true
+  exit_otp_mode: true
+  copy_back: true
 
 registers:
   feature_a0_default: 0x7C
@@ -39,9 +42,10 @@ registers:
 
 capabilities:
   block_protect: true
+  otp: true
   ecc_status: true
   bad_block_management: true
-  copy_back: false
+  copy_back: true
 
 constraints:
   require_wel: true
@@ -50,6 +54,8 @@ constraints:
   max_partial_programs: 4
   ecc_reserved_start: 256
   ecc_reserved_end: 272
+  initial_bad_blocks: [3]
+  otp_page_count: 2
 
 policy:
   name: generic_spinand
@@ -58,6 +64,20 @@ source:
   datasheet: demo
   page: synthetic
   confidence: 1.0
+
+evidence:
+  device.name: demo|synthetic|1.0
+  device.class: demo|synthetic|1.0
+  device.id: demo|synthetic|1.0
+  geometry.main_size: demo|synthetic|1.0
+  geometry.spare_size: demo|synthetic|1.0
+  geometry.pages_per_block: demo|synthetic|1.0
+  geometry.blocks: demo|synthetic|1.0
+  constraints.ecc_reserved_start: demo|synthetic|1.0
+  constraints.ecc_reserved_end: demo|synthetic|1.0
+  constraints.initial_bad_blocks: demo|synthetic|1.0
+  constraints.otp_page_count: demo|synthetic|1.0
+  policy.name: demo|synthetic|1.0
 
 unsupported_features:
   - read_retry

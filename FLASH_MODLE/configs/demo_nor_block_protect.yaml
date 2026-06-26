@@ -11,6 +11,7 @@ geometry:
   memory_size: 65536
   page_size: 256
   sector_size: 4096
+  block32_size: 32768
   block_size: 65536
   planes: 1
 
@@ -54,6 +55,18 @@ source:
   datasheet: demo
   page: synthetic
   confidence: 1.0
+
+evidence:
+  device.name: demo|synthetic|1.0
+  device.class: demo|synthetic|1.0
+  device.id: demo|synthetic|1.0
+  geometry.memory_size: demo|synthetic|1.0
+  geometry.page_size: demo|synthetic|1.0
+  geometry.sector_size: demo|synthetic|1.0
+  geometry.block32_size: demo|synthetic|1.0
+  constraints.nor_protect_start: demo|synthetic|1.0
+  constraints.nor_protect_length: demo|synthetic|1.0
+  policy.name: demo|synthetic|1.0
 
 unsupported_features:
   - otp

@@ -1,0 +1,95 @@
+schema_version: 1
+
+device:
+  name: GD5F1GM7UEYIGR
+  class: SPI_NAND
+  manufacturer: GigaDevice
+  part_number: GD5F1GM7UEYIGR
+  id: [0xC8, 0x91]
+
+geometry:
+  main_size: 2048
+  spare_size: 128
+  pages_per_block: 64
+  blocks: 1024
+  planes: 1
+
+timing:
+  read_us: 1
+  page_read_us: 120
+  program_us: 320
+  block_erase_us: 3000
+  reset_us: 500
+  puw_us: 2000
+
+commands:
+  read_id: true
+  reset: true
+  read_unique_id: true
+  read_parameter_page: true
+  page_read: true
+  read_from_cache: true
+  program_load: true
+  program_execute: true
+  block_erase: true
+  copy_back: true
+
+registers:
+  feature_a0_default: 0x38
+  feature_b0_default: 0x10
+  feature_c0_default: 0x00
+  feature_d0_default: 0x00
+  feature_c0_dynamic: true
+
+capabilities:
+  quad_enable: true
+  block_protect: true
+  unique_id: true
+  parameter_page: true
+  ecc_status: true
+  bad_block_management: true
+  otp: true
+  copy_back: true
+
+constraints:
+  require_wel: true
+  default_all_protected: true
+  strict_sequential_program: false
+  max_partial_programs: 4
+  ecc_reserved_start: 2112
+  ecc_reserved_end: 2176
+  otp_page_count: 10
+  unique_id_size: 16
+  parameter_page_size: 256
+
+policy:
+  name: gigadevice_family
+
+source:
+  datasheet: C19193269_NAND+FLASH_GD5F1GM7UEYIGR_规格书_WJ1663164_dual_Kimi+DeepSeek.pdf
+  page: extracted text lines 627-691, 918-945, 1841-1844, 1888-1906, 3445-3458, 3888-4055, 4120-4165, 4728-4745
+  confidence: 0.9
+
+evidence:
+  device.name: GD5F1GM7 PDF|lines 357-365|0.9
+  device.class: GD5F1GM7 PDF|lines 298-318|0.9
+  device.id: GD5F1GM7 PDF|lines 1841-1844|0.95
+  geometry.main_size: GD5F1GM7 PDF|lines 627-691|0.95
+  geometry.spare_size: GD5F1GM7 PDF|lines 627-691,4120-4165|0.9
+  geometry.pages_per_block: GD5F1GM7 PDF|lines 627-691|0.95
+  geometry.blocks: GD5F1GM7 PDF|lines 627-691|0.95
+  constraints.ecc_reserved_start: GD5F1GM7 PDF|lines 4120-4165|0.9
+  constraints.ecc_reserved_end: GD5F1GM7 PDF|lines 4120-4165|0.9
+  constraints.otp_page_count: GD5F1GM7 PDF|lines 3888-3915|0.95
+  constraints.unique_id_size: GD5F1GM7 PDF|lines 1888-1906|0.95
+  constraints.parameter_page_size: GD5F1GM7 PDF|lines 2000-2138|0.85
+  policy.name: GD5F1GM7 PDF|manufacturer GigaDevice|0.9
+
+unsupported_features:
+  - factory_bad_block_scan_from_spare_marker
+  - minimum_valid_block_count_enforcement
+  - otp_lock_permanent_state
+  - parameter_page_full_table
+  - ecc_status_bit_decode
+  - f0_extended_status_register
+  - power_on_read_page0_cache

@@ -1,0 +1,50 @@
+schema_version: 1
+
+device:
+  name: MISSING_EVIDENCE_SPINAND
+  class: SPI_NAND
+  manufacturer: Demo
+  part_number: MISSING-EVIDENCE
+  id: [0x5A, 0xEE, 0x01]
+
+geometry:
+  main_size: 256
+  spare_size: 16
+  pages_per_block: 4
+  blocks: 4
+
+timing:
+  page_read_us: 50
+  program_us: 250
+  block_erase_us: 2000
+
+commands:
+  read_id: true
+  page_read: true
+  read_from_cache: true
+  program_load: true
+  program_execute: true
+  block_erase: true
+
+registers:
+  feature_c0_dynamic: true
+
+capabilities:
+  ecc_status: true
+
+constraints:
+  require_wel: true
+  max_partial_programs: 4
+  ecc_reserved_start: 256
+  ecc_reserved_end: 272
+
+policy:
+  name: generic_spinand
+
+source:
+  datasheet: missing-evidence-demo
+  page: synthetic
+  confidence: 1.0
+
+unsupported_features:
+  - intentionally_missing_field_evidence

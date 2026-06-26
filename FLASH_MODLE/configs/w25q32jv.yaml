@@ -1,0 +1,102 @@
+schema_version: 1
+
+device:
+  name: W25Q32JVSSIQ
+  class: NOR
+  manufacturer: Winbond
+  part_number: W25Q32JVSSIQ
+  id: [0xEF, 0x40, 0x16]
+
+geometry:
+  memory_size: 4194304
+  page_size: 256
+  sector_size: 4096
+  block32_size: 32768
+  block_size: 65536
+  planes: 1
+
+timing:
+  read_us: 1
+  program_us: 400
+  sector_erase_us: 45000
+  block32_erase_us: 120000
+  block_erase_us: 150000
+  chip_erase_us: 10000000
+  reset_us: 30
+  puw_us: 5000
+
+commands:
+  read_id: true
+  reset: true
+  nor_read: true
+  nor_program: true
+  nor_erase: true
+  nor_block32_erase: true
+  nor_block_erase: true
+  nor_chip_erase: true
+  read_unique_id: true
+  read_sfdp: true
+  deep_power_down: true
+  release_power_down: true
+  suspend: true
+  resume: true
+  read_security_register: true
+  program_security_register: true
+  erase_security_register: true
+  lock_security_register: true
+
+registers:
+  status1_default: 0x00
+  status2_default: 0x02
+  status3_default: 0x00
+
+capabilities:
+  quad_enable: true
+  four_byte_address: false
+  block_protect: true
+  deep_power_down: true
+  suspend_resume: true
+  unique_id: true
+  sfdp: true
+  otp: true
+  security_register: true
+
+constraints:
+  require_wel: true
+  require_qe_for_quad: true
+  security_register_count: 3
+  security_register_size: 256
+  unique_id_size: 8
+  sfdp_size: 256
+
+policy:
+  name: winbond_family
+
+source:
+  datasheet: datasheet_tq
+  page: lines 168-323
+  confidence: 0.88
+
+evidence:
+  device.name: datasheet_tq|lines 129-144|0.9
+  device.class: datasheet_tq|lines 168-174|0.9
+  device.id: datasheet_tq|line 316|0.95
+  geometry.memory_size: datasheet_tq|lines 168-174|0.95
+  geometry.page_size: datasheet_tq|lines 168-174|0.95
+  geometry.sector_size: datasheet_tq|lines 168-174|0.95
+  geometry.block32_size: W25Q32JV PDF|lines 174-190,318-329|0.95
+  geometry.block_size: datasheet_tq|lines 170-171,270-273|0.9
+  constraints.security_register_count: W25Q32JV PDF|lines 5274-5296|0.95
+  constraints.security_register_size: W25Q32JV PDF|lines 5274-5296|0.95
+  constraints.unique_id_size: W25Q32JV PDF|lines 174-190,318-329|0.9
+  constraints.sfdp_size: W25Q32JV PDF|lines 5162-5177|0.9
+  policy.name: datasheet_tq|manufacturer Winbond|0.85
+
+unsupported_features:
+  - sec_tb_bp_cmp_decode
+  - individual_block_lock
+  - status_register_protect
+  - security_register_lock_bits
+  - suspend_resume_exact_status_bits
+  - full_sfdp_parameter_table
+  - tpuw_enforcement
