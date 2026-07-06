@@ -2,6 +2,7 @@
 set -eu
 
 cd "$(dirname "$0")/.."
+rm -rf /tmp/flash_model_dump
 
 ./flash_model_sim configs/demo_nor.yaml --self-test > /tmp/flash_model_nor.out
 grep -q "Test Result: PASS" /tmp/flash_model_nor.out
@@ -23,7 +24,7 @@ grep -q "Test Result: PASS" /tmp/flash_model_nor_bp.out
 grep -q "NOR block protect rejects erase in protected range" /tmp/flash_model_nor_bp.out
 grep -q "NOR block protect rejects program in protected range" /tmp/flash_model_nor_bp.out
 
-./flash_model_sim configs/demo_nand.yaml --self-test > /tmp/flash_model_nand.out
+./flash_model_sim configs/demo_nand.yaml --self-test --storage-dir /tmp/flash_model_dump > /tmp/flash_model_nand.out
 grep -q "Test Result: PASS" /tmp/flash_model_nand.out
 grep -q "block protect rejects erase before unlock" /tmp/flash_model_nand.out
 grep -q "NAND OTP read" /tmp/flash_model_nand.out
@@ -33,6 +34,12 @@ grep -q "strict sequential program rejects skipped page" /tmp/flash_model_nand.o
 grep -q "COPY_BACK accepted" /tmp/flash_model_nand.out
 grep -q "bad block management rejects erase" /tmp/flash_model_nand.out
 grep -q "bad block management rejects program" /tmp/flash_model_nand.out
+grep -q "storage image" /tmp/flash_model_nand.out
+grep -q "otp image" /tmp/flash_model_nand.out
+grep -q "manifest" /tmp/flash_model_nand.out
+test "$(wc -c < /tmp/flash_model_dump/DEMO_SPINAND_array.bin | tr -d ' ')" = "4352"
+test "$(wc -c < /tmp/flash_model_dump/DEMO_SPINAND_otp.bin | tr -d ' ')" = "544"
+grep -q "config: configs/demo_nand.yaml" /tmp/flash_model_dump/DEMO_SPINAND_manifest.txt
 
 for profile in \
     configs/nor_by25q64as.yaml \

@@ -51,6 +51,8 @@ make
 make run-nor
 make run-nor-protect
 make run-nand
+make dump-nor
+make dump-nand
 make test
 make clean
 ```
@@ -62,6 +64,43 @@ make clean
 ```
 
 早期的 `flash_modle_sim` 只作为历史构建产物在 `make clean` 中清理，不再作为正式入口。
+
+## 模拟存储区导出
+
+当前标准仿真流程是：
+
+```text
+配置文件
+  -> FlashModel 运行时模型
+  -> 内存模拟存储区
+  -> 执行仿真命令并持续修改存储区
+  -> 导出并保留二进制存储镜像，供后续检查
+```
+
+运行时仍使用内存里的稀疏存储区，速度较快；需要保留结果时导出完整二进制镜像。未写入区域会按擦除态 `0xFF` 填充，已经 program 的位置保存 old & new 后的真实模型数据。
+
+模拟存储区的大小和结构必须与配置文件中的 `geometry` 一致：
+
+- NOR：主阵列镜像大小等于 `geometry.memory_size`，布局是线性 byte address，`offset = byte_address`。
+- SPI-NAND / RAW-NAND：主阵列镜像大小等于 `geometry.blocks * geometry.pages_per_block * (geometry.main_size + geometry.spare_size)`，布局是 block -> page -> column，`offset = ((block * pages_per_block) + page) * page_size + column`。
+- NAND OTP：OTP 镜像大小等于 `constraints.otp_page_count * effective_page_size`。
+
+```bash
+./flash_model_sim configs/demo_nor.yaml --self-test --dump-storage out/storage/demo_nor.bin
+./flash_model_sim configs/demo_nand.yaml --self-test --storage-dir out/storage
+make dump-nor
+make dump-nand
+```
+
+`--storage-dir` 会自动生成：
+
+- `<device>_array.bin`：主阵列模拟存储区。
+- `<device>_otp.bin`：NAND OTP 模拟存储区，仅在配置启用 OTP 时生成。
+- `<device>_manifest.txt`：镜像说明，记录配置文件、器件名、类别、容量、页大小和仿真结束时间。
+
+`--dump-dir` 是 `--storage-dir` 的兼容别名。
+
+`make clean` 会同时清理编译产物和 `out/` 目录，因此会删除已经导出的模拟存储区镜像。需要保留某次仿真结果时，应先把 `out/storage` 中的镜像复制到其他归档目录。
 
 ## 当前能力
 

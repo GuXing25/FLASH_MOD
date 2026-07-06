@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <map>
+#include <string>
 #include <vector>
 
 namespace flash_model {
@@ -24,6 +25,8 @@ public:
                      bool wrap = true);
     // erase 把目标范围恢复为默认 0xFF，因此稀疏 map 中对应项会被删除。
     void erase(std::uint64_t address, std::uint64_t length, bool wrap = true);
+    // 将当前模拟阵列导出为完整二进制镜像；未写入区域会导出为擦除态 0xFF。
+    void write_image(const std::string& path, std::size_t chunk_size = 1024 * 1024) const;
 
 private:
     std::uint64_t size_bytes_ = 0; // 阵列总容量。

@@ -13,6 +13,7 @@ flash_mod_nand_sim
 
 # Self-test storage images
 *.bin
+FLASH_MODLE/out/
 
 # Local editor/system files
 .vscode/

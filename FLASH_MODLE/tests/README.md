@@ -6,6 +6,7 @@
 
 - `address_test.cpp`：地址映射测试。
 - `storage_test.cpp`：稀疏存储、old&new、wrap、越界异常测试。
+- `layout_test.cpp`：所有 profile 的模拟存储区大小和 NOR/NAND 线性布局公式测试。
 - `registers_test.cpp`：寄存器状态测试。
 - `timing_test.cpp`：时序状态测试。
 - `capability_test.cpp`：能力模块 hook 测试。

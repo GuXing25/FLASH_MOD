@@ -30,6 +30,7 @@ ADDR_TEST := tests/address_test
 REG_TEST := tests/registers_test
 TIME_TEST := tests/timing_test
 STORAGE_TEST := tests/storage_test
+LAYOUT_TEST := tests/layout_test
 CAP_TEST := tests/capability_test
 EVIDENCE_TEST := tests/evidence_test
 INTERFACE_TEST := tests/interface_test
@@ -49,6 +50,7 @@ TIME_TEST_SRCS := tests/timing_test.cpp \
 	src/core/timing.cpp
 STORAGE_TEST_SRCS := tests/storage_test.cpp \
 	src/core/storage.cpp
+LAYOUT_TEST_SRCS := tests/layout_test.cpp $(LIB_SRCS)
 CAP_TEST_SRCS := tests/capability_test.cpp \
 	src/config/config.cpp \
 	src/config/loader.cpp \
@@ -72,7 +74,7 @@ COMMAND_TEST_SRCS := tests/command_test.cpp \
 # 集成型模型测试链接完整框架库，覆盖 builder -> model -> core/capability/policy 的组合路径。
 MODEL_TEST_SRCS := tests/model_feature_test.cpp $(LIB_SRCS)
 
-.PHONY: all clean run-nor run-nor-protect run-nand test
+.PHONY: all clean run-nor run-nor-protect run-nand dump-nor dump-nand test
 
 all: $(TARGET)
 
@@ -91,6 +93,12 @@ run-nor-protect: $(TARGET)
 run-nand: $(TARGET)
 	./$(TARGET) configs/demo_nand.yaml --self-test
 
+dump-nor: $(TARGET)
+	./$(TARGET) configs/demo_nor.yaml --self-test --storage-dir out/storage
+
+dump-nand: $(TARGET)
+	./$(TARGET) configs/demo_nand.yaml --self-test --storage-dir out/storage
+
 $(ADDR_TEST): $(ADDR_TEST_SRCS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(ADDR_TEST_SRCS) -o $@
 
@@ -102,6 +110,9 @@ $(TIME_TEST): $(TIME_TEST_SRCS)
 
 $(STORAGE_TEST): $(STORAGE_TEST_SRCS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(STORAGE_TEST_SRCS) -o $@
+
+$(LAYOUT_TEST): $(LAYOUT_TEST_SRCS)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(LAYOUT_TEST_SRCS) -o $@
 
 $(CAP_TEST): $(CAP_TEST_SRCS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(CAP_TEST_SRCS) -o $@
@@ -118,11 +129,12 @@ $(COMMAND_TEST): $(COMMAND_TEST_SRCS)
 $(MODEL_TEST): $(MODEL_TEST_SRCS)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(MODEL_TEST_SRCS) -o $@
 
-test: $(TARGET) $(ADDR_TEST) $(REG_TEST) $(TIME_TEST) $(STORAGE_TEST) $(CAP_TEST) $(EVIDENCE_TEST) $(INTERFACE_TEST) $(COMMAND_TEST) $(MODEL_TEST)
+test: $(TARGET) $(ADDR_TEST) $(REG_TEST) $(TIME_TEST) $(STORAGE_TEST) $(LAYOUT_TEST) $(CAP_TEST) $(EVIDENCE_TEST) $(INTERFACE_TEST) $(COMMAND_TEST) $(MODEL_TEST)
 	./$(ADDR_TEST)
 	./$(REG_TEST)
 	./$(TIME_TEST)
 	./$(STORAGE_TEST)
+	./$(LAYOUT_TEST)
 	./$(CAP_TEST)
 	./$(EVIDENCE_TEST)
 	./$(INTERFACE_TEST)
@@ -131,4 +143,5 @@ test: $(TARGET) $(ADDR_TEST) $(REG_TEST) $(TIME_TEST) $(STORAGE_TEST) $(CAP_TEST
 	sh tests/smoke.sh
 
 clean:
-	rm -f $(TARGET) $(LEGACY_TARGET) $(APP_OBJS) $(ADDR_TEST) $(REG_TEST) $(TIME_TEST) $(STORAGE_TEST) $(CAP_TEST) $(EVIDENCE_TEST) $(INTERFACE_TEST) $(COMMAND_TEST) $(MODEL_TEST)
+	rm -f $(TARGET) $(LEGACY_TARGET) $(APP_OBJS) $(ADDR_TEST) $(REG_TEST) $(TIME_TEST) $(STORAGE_TEST) $(LAYOUT_TEST) $(CAP_TEST) $(EVIDENCE_TEST) $(INTERFACE_TEST) $(COMMAND_TEST) $(MODEL_TEST)
+	rm -rf out

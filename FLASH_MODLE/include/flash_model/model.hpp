@@ -43,6 +43,10 @@ public:
     const RuntimeState& state() const { return registers_.state(); }
     double time_us() const { return timing_.now_us(); }
     bool busy();
+    std::uint64_t storage_size_bytes() const { return storage_.size(); }
+    std::uint64_t otp_storage_size_bytes() const { return otp_storage_.size(); }
+    void dump_storage_image(const std::string& path) const;
+    void dump_otp_image(const std::string& path) const;
 
     // 共有系统命令：NOR 和 NAND 都可能复用这些基础控制行为。
     OperationResult read_id();

@@ -1,7 +1,9 @@
 #include "flash_model/storage.hpp"
 
 #include <cassert>
+#include <cstdio>
 #include <cstdint>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -42,6 +44,16 @@ int main()
         threw = true;
     }
     assert(threw);
+
+    // 当前稀疏后端也能导出完整镜像文件，未编程区域必须以 0xFF 填充。
+    const char* image_path = "/tmp/flash_model_storage_test.bin";
+    storage.write_image(image_path, 2);
+
+    std::ifstream image(image_path, std::ios::binary);
+    std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(image)),
+                                    std::istreambuf_iterator<char>());
+    assert((bytes == std::vector<std::uint8_t>{0x00, 0xFF, 0xFF, 0x00}));
+    std::remove(image_path);
 
     std::cout << "StorageBackend tests PASS\n";
     return 0;

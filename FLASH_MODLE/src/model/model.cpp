@@ -121,6 +121,19 @@ bool FlashModel::busy()
     return timing_.busy();
 }
 
+void FlashModel::dump_storage_image(const std::string& path) const
+{
+    storage_.write_image(path);
+}
+
+void FlashModel::dump_otp_image(const std::string& path) const
+{
+    if (!config_.capabilities.otp || config_.constraints.otp_page_count == 0) {
+        throw std::runtime_error("OTP storage is not configured for this model");
+    }
+    otp_storage_.write_image(path);
+}
+
 bool FlashModel::require_awake(const char* op) const
 {
     (void)op;

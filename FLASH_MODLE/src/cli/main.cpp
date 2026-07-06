@@ -1,6 +1,9 @@
 #include "flash_model/builder.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
@@ -46,6 +49,93 @@ bool all_equal(const std::vector<std::uint8_t>& data, std::uint8_t value)
 {
     return std::all_of(data.begin(), data.end(),
                        [value](std::uint8_t byte) { return byte == value; });
+}
+
+std::string safe_file_stem(const std::string& text)
+{
+    std::string out;
+    for (unsigned char c : text) {
+        if (std::isalnum(c) || c == '_' || c == '-') out.push_back(static_cast<char>(c));
+        else out.push_back('_');
+    }
+    return out.empty() ? "flash_model" : out;
+}
+
+std::string join_path(const std::string& directory, const std::string& filename)
+{
+    return (std::filesystem::path(directory) / filename).string();
+}
+
+void dump_requested_images(const FlashModel& model,
+                           const std::string& dump_storage_path,
+                           const std::string& dump_otp_path,
+                           const std::string& dump_dir,
+                           const std::string& config_path)
+{
+    const ModelConfig& config = model.config();
+
+    if (!dump_dir.empty()) {
+        const std::string stem = safe_file_stem(config.device.name);
+        const std::string array_path = join_path(dump_dir, stem + "_array.bin");
+        const std::string manifest_path = join_path(dump_dir, stem + "_manifest.txt");
+        model.dump_storage_image(array_path);
+        std::cout << "[dump] storage image: " << array_path << "\n";
+
+        std::ofstream manifest(manifest_path, std::ios::trunc);
+        if (!manifest) {
+            throw std::runtime_error("failed to open storage manifest: " + manifest_path);
+        }
+        manifest << "FLASH_MODEL storage manifest\n";
+        manifest << "config: " << config_path << "\n";
+        manifest << "device.name: " << config.device.name << "\n";
+        manifest << "device.class: " << to_string(config.device.cls) << "\n";
+        manifest << "manufacturer: " << config.device.manufacturer << "\n";
+        manifest << "part_number: " << config.device.part_number << "\n";
+        manifest << "array_image: " << array_path << "\n";
+        manifest << "array_size_bytes: " << config.total_size_bytes() << "\n";
+        manifest << "effective_page_size: " << config.effective_page_size() << "\n";
+        if (is_nand_like(config.device.cls)) {
+            manifest << "layout: NAND_LINEAR_BLOCK_PAGE_COLUMN\n";
+            manifest << "layout_formula: offset=((block*pages_per_block)+page)*page_size+column\n";
+            manifest << "main_size: " << config.geometry.main_size << "\n";
+            manifest << "spare_size: " << config.geometry.spare_size << "\n";
+            manifest << "pages_per_block: " << config.geometry.pages_per_block << "\n";
+            manifest << "blocks: " << config.geometry.blocks << "\n";
+            manifest << "planes: " << config.geometry.planes << "\n";
+            manifest << "dies: " << config.geometry.dies << "\n";
+        } else {
+            manifest << "layout: NOR_LINEAR_BYTE_ADDRESS\n";
+            manifest << "layout_formula: offset=byte_address\n";
+            manifest << "memory_size: " << config.geometry.memory_size << "\n";
+            manifest << "page_size: " << config.geometry.page_size << "\n";
+            manifest << "sector_size: " << config.geometry.sector_size << "\n";
+            manifest << "block32_size: " << config.geometry.block32_size << "\n";
+            manifest << "block_size: " << config.geometry.block_size << "\n";
+        }
+        manifest << "time_us: " << std::fixed << std::setprecision(3) << model.time_us() << "\n";
+
+        if (config.capabilities.otp && config.constraints.otp_page_count != 0) {
+            const std::string otp_path = join_path(dump_dir, stem + "_otp.bin");
+            model.dump_otp_image(otp_path);
+            std::cout << "[dump] otp image: " << otp_path << "\n";
+            manifest << "otp_image: " << otp_path << "\n";
+            manifest << "otp_size_bytes: "
+                     << static_cast<std::uint64_t>(config.constraints.otp_page_count) *
+                            static_cast<std::uint64_t>(config.effective_page_size())
+                     << "\n";
+        }
+        std::cout << "[dump] manifest: " << manifest_path << "\n";
+    }
+
+    if (!dump_storage_path.empty()) {
+        model.dump_storage_image(dump_storage_path);
+        std::cout << "[dump] storage image: " << dump_storage_path << "\n";
+    }
+
+    if (!dump_otp_path.empty()) {
+        model.dump_otp_image(dump_otp_path);
+        std::cout << "[dump] otp image: " << dump_otp_path << "\n";
+    }
 }
 
 bool run_nor_self_test(FlashModel& model)
@@ -369,6 +459,9 @@ int main(int argc, char** argv)
         std::string config_path = "configs/demo_nor.yaml";
         bool self_test = true;
         bool validate_only = false;
+        std::string dump_storage_path;
+        std::string dump_otp_path;
+        std::string dump_dir;
 
         for (int i = 1; i < argc; ++i) {
             const std::string arg = argv[i];
@@ -377,6 +470,22 @@ int main(int argc, char** argv)
             else if (arg == "--validate-only") {
                 validate_only = true;
                 self_test = false;
+            }
+            else if (arg == "--dump-storage") {
+                if (i + 1 >= argc) throw std::runtime_error("--dump-storage requires a path");
+                dump_storage_path = argv[++i];
+            }
+            else if (arg == "--dump-otp") {
+                if (i + 1 >= argc) throw std::runtime_error("--dump-otp requires a path");
+                dump_otp_path = argv[++i];
+            }
+            else if (arg == "--dump-dir") {
+                if (i + 1 >= argc) throw std::runtime_error("--dump-dir requires a directory");
+                dump_dir = argv[++i];
+            }
+            else if (arg == "--storage-dir") {
+                if (i + 1 >= argc) throw std::runtime_error("--storage-dir requires a directory");
+                dump_dir = argv[++i];
             }
             else config_path = arg;
         }
@@ -408,6 +517,9 @@ int main(int argc, char** argv)
         std::cout << "Test Result: " << (ok ? "PASS" : "FAIL") << "\n";
         std::cout << "Final Time: " << std::fixed << std::setprecision(3)
                   << model.time_us() << " us\n";
+        if (ok) {
+            dump_requested_images(model, dump_storage_path, dump_otp_path, dump_dir, config_path);
+        }
         return ok ? 0 : 2;
     } catch (const std::exception& e) {
         std::cerr << "[fatal] " << e.what() << "\n";
